@@ -1,0 +1,1213 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Point Collector App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    /* ────────────────────────────────────────────────
+      1. RESET & BASE STYLES
+    ──────────────────────────────────────────────── */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+    
+    .label-small {
+      font-size: 12px;
+    }
+    
+    .label-large {
+      font-size: 16px;
+    }
+    
+    /* ────────────────────────────────────────────────
+      2. MAP & LEAFLET
+    ──────────────────────────────────────────────── */
+    #map {
+      position: absolute;
+      top: 80px;
+      bottom: 0px;
+      width: 100%;
+      z-index: 1;
+    }
+    
+    .leaflet-container {
+      pointer-events: auto;
+    }
+    
+    .leaflet-top.leaflet-left {
+      top: 60px;
+      left: 10px;
+    }
+    
+    .leaflet-control.user-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .leaflet-control.user-controls button,
+    button.map-overlay-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      background: white;
+      border: none;
+      cursor: pointer;
+      z-index: 1001;
+      pointer-events: auto;
+    }
+    
+    .leaflet-control.user-controls button:hover {
+      background: #f0f0f0;
+    }
+    
+    /* ────────────────────────────────────────────────
+      3. HEADER BARS
+    ──────────────────────────────────────────────── */
+    .title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: black;
+      color: white;
+      padding: 0 15px;
+      height: 60px;
+    }
+    
+    .title-bar img {
+      height: 60px;
+      object-fit: contain;
+    }
+    
+    .title-text {
+      font-size: 20px;
+      font-weight: bolder;
+      color: rgb(235, 236, 213);
+    }
+    
+    .subtitle-bar {
+      background: #383838;
+      color: white;
+      padding: 10px;
+      position: sticky;
+      top: 40px;
+      z-index: 1000;
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+    }
+    
+    #consoleToggle {
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    
+    #consoleToggle.active {
+      color: red;
+    }
+    
+    /* ────────────────────────────────────────────────
+      4. CONSOLE DRAWER
+    ──────────────────────────────────────────────── */
+    #consoleDrawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-height: 300px;
+      background: black;
+      color: #00FF00; /* phosphor green */
+      border-top: 2px solid #00FF00;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 14px;
+      display: none;
+      overflow-y: auto;
+      z-index: 1001;
+      padding: 10px;
+      box-shadow: 0 -2px 6px rgba(0, 255, 0, 0.2);
+    }
+    
+    #consoleDrawer.active {
+      display: block;
+    }
+    
+    #log div {
+      white-space: pre-wrap;
+      margin-bottom: 4px;
+    }
+    
+    #consoleToggle.active {
+      color: #00FF00;
+      text-shadow: 0 0 5px #00FF00;
+    }
+    
+    #log {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    .log-entry {
+      white-space: pre-wrap;
+      margin-bottom: 4px;
+    }
+    
+    .log-warning {
+      color: yellow;
+    }
+    
+    .log-error {
+      color: red;
+    }
+    
+    /* ────────────────────────────────────────────────
+      5. FOOTER
+    ──────────────────────────────────────────────── */
+    .footer {
+      background: black;
+      color: white;
+      padding: 10px;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      text-align: left;
+      z-index: 1001;
+    }
+    
+    /* ────────────────────────────────────────────────
+      6. DRAWERS (LEFT/RIGHT PANELS)
+    ──────────────────────────────────────────────── */
+    .side-drawer, .right-drawer {
+      position: fixed;
+      top: 80px;
+      bottom: 40px;
+      width: 50%;
+      max-width: 300px;
+      background: white;
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    
+    .side-drawer {
+      left: 0;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+      z-index: 1500;
+    }
+    
+    .right-drawer {
+      right: 0;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+      border-left: 1px solid #ccc;
+      z-index: 1600;
+    }
+    
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      background: #b8b8b8;
+      border-bottom: 1px solid #ccc;
+      font-weight: bold;
+    }
+    
+    .drawer-header .close-icon {
+      margin-right: 10px;
+      cursor: pointer;
+      color: inherit;
+      transition: color 0.2s ease;
+    }
+    
+    .drawer-header .close-icon:hover {
+      color: red;
+    }
+    
+    .drawer-section-heading {
+      background: #f1f1f1;
+      margin: 10px 0;
+      padding: 8px 10px;
+      font-size: 1.1em;
+      font-weight: bold;
+      border-top: 1px solid #ccc;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .drawer-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      font-size: 1.1em;
+      cursor: pointer;
+      justify-content: space-between;
+    }
+    
+    .drawer-row .label {
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .drawer-content {
+      padding: 10px;
+      flex: 1 1 auto;
+    }
+    
+    .drawer-footer {
+      position: sticky;
+      bottom: 0;
+      background: #f8f8f8;
+      border-top: 1px solid #ccc;
+      padding: 10px;
+      display: flex;
+      justify-content: space-around;
+      z-index: 10;
+    }
+    
+    .drawer-footer button {
+      padding: 5px 5px;
+      border: 1px solid #000;
+      background: white;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.2s ease, color 0.2s ease, border 0.2s ease;
+    }
+    
+    .drawer-footer button:hover {
+      background: #002042;
+      color: white;
+      border-color: #002042;
+    }
+    
+    /* Bottom drawer for dataset loading */
+    .bottom-drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 40%;
+      background: #1a1a1a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      border-top: 2px solid #333;
+      z-index: 1600;
+      box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
+    }
+    
+    .drawer-header.dark {
+      display: flex;
+      align-items: center;
+      background: #333;
+      padding: 10px 15px;
+      font-weight: bold;
+      font-size: 16px;
+      border-bottom: 1px solid #444;
+      color: #fff;
+    }
+    
+    .drawer-header.dark .close-icon {
+      margin-right: 10px;
+      cursor: pointer;
+      color: #aaa;
+      transition: color 0.2s ease;
+    }
+    
+    .drawer-header.dark .close-icon:hover {
+      color: red;
+    }
+    
+    .drawer-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 15px;
+    }
+    
+    .drawer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #444;
+    }
+    
+    .drawer-row .label {
+      color: #90ee90;
+      font-family: monospace;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .drawer-row button {
+      padding: 4px 8px;
+      background: #0f0f0f;
+      color: white;
+      border: 1px solid #666;
+      cursor: pointer;
+    }
+    
+    .drawer-row button:hover {
+      background: #222;
+    }
+    
+    .drawer-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: black;
+      opacity: 0.6;
+      z-index: 1500;
+    }
+    
+    /* ────────────────────────────────────────────────
+      7. MODALS / BACKDROPS
+    ──────────────────────────────────────────────── */
+    .backdrop {
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      bottom: 40px;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 1400;
+      display: none;
+    }
+    
+    /* ────────────────────────────────────────────────
+      8. ICON UTILS
+    ──────────────────────────────────────────────── */
+    .icon-btn {
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    
+    .icon-btn.red {
+      color: red;
+    }
+    
+    /* ────────────────────────────────────────────────
+      9. GPS ACCURACY
+    ──────────────────────────────────────────────── */
+    .gps-accuracy {
+      background: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      display: none;
+      color: black;
+    }
+    
+    .accuracy-good {
+      color: #00aa00;
+    }
+    
+    .accuracy-moderate {
+      color: #aaaa00;
+    }
+    
+    .accuracy-poor {
+      color: #aa0000;
+    }
+    
+    /* ────────────────────────────────────────────────
+     10. BASEMAP SELECTOR
+    ──────────────────────────────────────────────── */
+    .basemap-selector {
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .basemap-option {
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .basemap-option:hover {
+      background: #f0f0f0;
+    }
+    
+    .basemap-option.active {
+      background: #e0e8ff;
+    }
+    
+    .basemap-option img {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border: 1px solid #ccc;
+    }
+    
+    .basemap-details {
+      flex: 1;
+    }
+    
+    .basemap-details h4 {
+      margin: 0 0 4px 0;
+      font-size: 14px;
+    }
+    
+    .basemap-details p {
+      margin: 0;
+      font-size: 12px;
+      color: #666;
+    }
+    
+    .map-section {
+      padding: 0 10px;
+      margin-bottom: 15px;
+    }
+    
+    .map-section h3 {
+      margin: 10px 0;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 2000;
+    }
+    
+    .modal-window {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #1a1a1a;
+      color: white;
+      width: 90%;
+      max-width: 500px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      z-index: 2001;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    }
+    
+    .modal-header.dark {
+      background: #333;
+      color: white;
+      padding: 12px 16px;
+      font-size: 16px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #444;
+    }
+    
+    .modal-header.dark .close-icon {
+      margin-right: 10px;
+      cursor: pointer;
+      color: #aaa;
+    }
+    
+    .modal-header.dark .close-icon:hover {
+      color: red;
+    }
+    
+    .modal-content {
+      padding: 15px;
+      overflow-y: auto;
+    }
+    
+    /* Reuse basemap-option styles */
+    .basemap-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .basemap-option {
+      background: #222;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+    
+    .basemap-option:hover {
+      background: #2f2f2f;
+    }
+    
+    .basemap-option.active {
+      background: #006400;
+      border-color: #00ff00;
+    }
+    
+    .basemap-option img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border: 1px solid #666;
+    }
+    
+    .basemap-details h4 {
+      margin: 0;
+      font-size: 14px;
+    }
+    
+    .basemap-details p {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: #ccc;
+    }
+    
+    
+    /* ────────────────────────────────────────────────
+     11. PULSING GPS INDICATOR
+    ──────────────────────────────────────────────── */
+    .track-btn-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .pulsing-indicator {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 10px;
+      height: 10px;
+      background: #00ff00;
+      border-radius: 50%;
+      animation: pulse 1s infinite;
+      z-index: 10;
+    }
+    
+
+
+    @keyframes pulse {
+      0%   { transform: scale(1); opacity: 1; }
+      50%  { transform: scale(1.5); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* ────────────────────────────────────────────────
+     12. CONSOLE DRAWER
+    ──────────────────────────────────────────────── */
+    #consoleDrawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-height: 300px;
+      display: none;
+      flex-direction: column;
+      z-index: 1001;
+      box-shadow: 0 -2px 6px rgba(0, 255, 0, 0.2);
+    }
+    
+    /* Dark grey header for controls */
+    .console-header {
+      background: #333;
+      color: white;
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #555;
+      font-weight: bold;
+    }
+    
+    .console-header .close-icon {
+      cursor: pointer;
+      margin-right: 10px;
+      font-size: 18px;
+      color: #aaa;
+    }
+    
+    .console-header .close-icon:hover {
+      color: red;
+    }
+    
+    .console-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .console-actions button {
+      background: #555;
+      color: white;
+      border: 1px solid #777;
+      padding: 4px 8px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    
+    .console-actions button:hover {
+      background: #777;
+    }
+    
+    /* Console log styling */
+    .console-log {
+      background: black;
+      color: #00FF00;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-y: auto;
+      padding: 10px;
+      flex: 1 1 auto;
+    }
+    
+    .console-log .log-entry {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+    }
+    
+    .console-log .log-warning {
+      color: yellow;
+    }
+    
+    .console-log .log-error {
+      color: red;
+    }
+
+    .map-floating-btn {
+      position: absolute;
+      top: 240px;       /* ⬅️ Adjust Y-position here */
+      left: 15px;      /* ⬅️ Adjust X-position here */
+      z-index: 1001;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: white;
+      border: 1px solid #444;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      font-size: 18px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+  
+
+    .map-floating-btn:hover {
+      background: #eee;
+    }
+
+    .map-floating-manual {
+      position: absolute;
+      top: 320px;       /* Adjust vertical position */
+      left: 15px;       /* Adjust horizontal position */
+      z-index: 1001;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: white;
+      border: 1px solid #444;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      font-size: 18px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: absolute;
+    }
+      
+    .pulsing-red {
+      position: absolute;
+      top:0px;
+      right: 0px;
+      width: 40px;
+      height: 40px;
+      background: red;
+      border-radius: 50%;
+      animation: pulse 1s infinite;
+      z-index: 1002;
+      pointer-events: none;
+    }
+
+    .map-floating-manual:hover {
+      background: #eee;
+    }
+
+    
+  </style>
+</head>
+<body>
+
+  <div class="title-bar">
+    <img src="assets/logo_white.png" alt="Logo" />
+    <div class="title-center">
+      <span class="title-text">FraxGPS</span>
+    </div>
+    <i class="fas fa-cog gear-icon fa-lg" id="gearIcon"></i>
+  </div>
+
+  <div class="subtitle-bar">
+    <div>
+      <label>Track ID: <input type="text" id="trackId" placeholder="TRACK001" style="width: 100px;" /></label>
+      <label>Min Dist (m): <input type="number" id="minDist" value="10" style="width: 60px;" /></label>
+      <button id="startTrack"><i class="fas fa-play"></i></button>
+      <button id="stopTrack"><i class="fas fa-stop"></i></button>
+    </div>
+    <div>
+      <label for="basemapSelect">Basemap:</label>
+      <select id="basemapSelect">
+        <option value="osm">OpenStreetMap</option>
+        <option value="esri">Esri World Imagery</option>
+        <option value="topo">OpenTopoMap</option>
+        <option value="googlehybrid">Google Hybrid</option>
+        <option value="custom">User XYZ</option>
+      </select>
+      <input id="xyzUrl" type="text" placeholder="https://your.tileserver.com/{z}/{x}/{y}.png" style="width: 260px; display: none;" />
+    </div>
+  </div>
+
+  
+  <div id="map"></div>
+
+  <button id="mapGpsBtn" class="map-floating-btn" title="Place GPS Point">
+    <i class="fas fa-crosshairs"></i>
+  </button>
+
+  <button id="mapManualBtn" class="map-floating-manual" title="Enable Manual Point Mode">
+    <i class="fas fa-mouse-pointer"></i>
+    <div id="manualPulse" class="pulsing-red" style="display: none;"></div>
+  </button>
+  
+
+
+
+  <div id="consoleDrawer" style="display: none;">
+    <div class="console-header">
+      <i class="fas fa-times close-icon" onclick="toggleDrawer(false)"></i>
+      <div class="console-actions">
+      
+        <label>Type:
+          <select id="typeSelect">
+            <option value="Wetland">Wetland</option>
+            <option value="Watercourse">Watercourse</option>
+            <option value="Habitat">Habitat</option>
+            <option value="Bird">Bird</option>
+            <option value="Other">Other</option>
+          </select>
+        </label>
+      
+        <!-- <button id="placePointBtn"><i class="fa-solid fa-location-dot fa-2x"></i></button> -->
+      </div>
+      
+      <div class="console-actions">
+        <button id="uploadBtn"><i class="fa-solid fa-cloud-arrow-up fa-2x"></i></button>
+        <button id="loadDatasetsBtn"><i class="fa-solid fa-cloud-arrow-down fa-2x"></i></button>
+        <button id="clearBtn"><i class="fa-solid fa-trash fa-2x"></i></button>
+        <button id="reenterBtn"><i class="fa-solid fa-circle-info fa-2x"></i></button>
+      </div>
+    </div>
+    <div id="log" class="console-log">
+      <!-- log messages go here -->
+    </div>
+  </div>
+  
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  
+  <script>
+  //INLINE JS SECTION
+
+  window.addEventListener("DOMContentLoaded", () => {
+    let collectionMode = "None"; // Can be "Manual", "GPS", or "None"
+    const uploadLogUrl = "https://fraxinus-fielddata.s3.us-east-2.amazonaws.com/uploads_log.json";
+    const map = L.map('map').setView([44.65, -63.57], 10);
+    const layers = {
+      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 }),
+      esri: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 }),
+      topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 20 }),
+      googlehybrid: L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}', {maxZoom: 20}),
+      custom: null
+    };
+    layers.osm.addTo(map);
+
+
+
+
+    const xyzInput = document.getElementById('xyzUrl');
+    document.getElementById('basemapSelect').addEventListener('change', (e) => {
+      const value = e.target.value;
+      Object.values(layers).forEach(layer => layer && map.removeLayer(layer));
+      if (value === 'custom') {
+        xyzInput.style.display = 'inline-block';
+        xyzInput.addEventListener('change', () => {
+          if (layers.custom) map.removeLayer(layers.custom);
+          layers.custom = L.tileLayer(xyzInput.value, { maxZoom: 22 }).addTo(map);
+        });
+      } else {
+        xyzInput.style.display = 'none';
+        layers[value].addTo(map);
+      }
+    });
+
+    // Floating GPS Point Button (mapGpsBtn)
+    document.getElementById("mapGpsBtn").onclick = () => {
+      collectionMode = "GPS";
+
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(pos => {
+        addPoint(pos.coords.latitude, pos.coords.longitude);
+      }, err => alert("GPS Error: " + err.message));
+    };
+
+
+    //FLoating Manual Point Button (mapManualBtn)
+    document.getElementById("mapManualBtn").onclick = () => {
+      const pulse = document.getElementById("manualPulse");
+
+      if (collectionMode === "Manual") {
+        collectionMode = "None";
+        pulse.style.display = "none";
+        log("✋ Manual mode deactivated.");
+      } else {
+        collectionMode = "Manual";
+        pulse.style.display = "block";
+        log("👆 Manual mode activated. Click on map to drop point.");
+      }
+    };
+
+
+
+    let geoCircle, geoMarker;
+
+      function updateGeoCircle(position) {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+
+        const latlng = [lat, lng];
+
+        // Create marker if it doesn't exist
+        if (!geoMarker) {
+          geoMarker = L.circleMarker(latlng, {
+            radius: 5,
+            color: '#3388ff',
+            fillColor: '#3388ff',
+            fillOpacity: 1
+          }).addTo(map);
+        } else {
+          geoMarker.setLatLng(latlng);
+        }
+
+        // Create circle if it doesn't exist
+        if (!geoCircle) {
+          geoCircle = L.circle(latlng, {
+            radius: accuracy,
+            color: '#3388ff',
+            fillColor: '#3388ff',
+            fillOpacity: 0.2,
+            weight: 1
+          }).addTo(map);
+        } else {
+          geoCircle.setLatLng(latlng);
+          geoCircle.setRadius(accuracy);
+        }
+      }
+
+
+    const logDiv = document.getElementById("log");
+/*     function log(msg) {
+      const div = document.createElement("div");
+      div.textContent = msg;
+      logDiv.appendChild(div);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    } */
+
+    function log(msg) {
+      const div = document.createElement("div");
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString();
+
+      div.classList.add("log-entry");
+      div.textContent = `[${timestamp}] ${msg}`;
+
+      // Prepend the new log entry to the top
+      logDiv.insertBefore(div, logDiv.firstChild);
+
+      // Optional: Auto-scroll to top
+      logDiv.scrollTop = 0;
+    }
+
+    const gearIcon = document.getElementById("gearIcon");
+    const drawer = document.getElementById("consoleDrawer");
+    gearIcon.addEventListener("click", () => {
+      const isOpen = drawer.style.display === "block";
+      drawer.style.display = isOpen ? "none" : "block";
+      gearIcon.classList.toggle("active", !isOpen);
+    });
+
+    function promptGlobals(force = false) {
+      if (force || !localStorage.getItem("surveyor") || !localStorage.getItem("site")) {
+        const initials = prompt("Enter Surveyor Initials (no spaces):", localStorage.getItem("surveyor") || "").trim();
+        const s = prompt("Enter Site Code (no spaces):", localStorage.getItem("site") || "").trim();
+        localStorage.setItem("surveyor", initials);
+        localStorage.setItem("site", s);
+        log(`🧭 Surveyor: ${initials}, Site: ${s}`);
+      }
+    }
+
+    promptGlobals();
+    const surveyor = () => localStorage.getItem("surveyor") || "UNKNOWN";
+    const site = () => localStorage.getItem("site") || "SITE";
+    const points = JSON.parse(localStorage.getItem("points") || "[]");
+    function savePoints() { localStorage.setItem("points", JSON.stringify(points)); }
+
+    function getColor(type) {
+      return {
+        Wetland: 'blue', Watercourse: 'aqua', Habitat: 'green', Bird: 'orange', Other: 'gray', Track: 'red'
+      }[type] || 'blue';
+    }
+
+    function renderPoints() {
+      map.eachLayer(layer => {
+        if (layer instanceof L.CircleMarker || layer instanceof L.Polyline) map.removeLayer(layer);
+      });
+      Object.values(layers).forEach(layer => layer && map.addLayer(layer));
+      points.forEach(pt => {
+        if (pt.geometry.type === "Point") {
+          const [lng, lat] = pt.geometry.coordinates;
+          const color = getColor(pt.properties.TYPE);
+          L.circleMarker([lat, lng], {
+            radius: 6, color, fillColor: color, fillOpacity: 0.8
+          }).addTo(map).bindPopup(`${pt.properties.TYPE || ''}: ${pt.properties.DESC}`);
+        } else if (pt.geometry.type === "LineString") {
+          L.polyline(pt.geometry.coordinates.map(c => [c[1], c[0]]), {
+            color: getColor(pt.properties.TYPE), weight: 3
+          }).addTo(map).bindPopup(`Track: ${pt.properties.TRACK_ID}`);
+        }
+      });
+    }
+
+    function addPoint(lat, lng) {
+      const desc = prompt("Enter a description:");
+      if (!desc) return;
+
+      const type = document.getElementById("typeSelect").value;
+
+      const feature = {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [lng, lat] },
+        properties: {
+          DESC: desc,
+          SURVEYOR: surveyor(),
+          SITE: site(),
+          COLLECTION: collectionMode,
+          TYPE: type
+        }
+      };
+
+      points.push(feature);
+      savePoints();
+      log(`🟦 Added: ${desc} (${surveyor()}, ${site()}, ${collectionMode}, ${type})`);
+      renderPoints();
+    }
+
+
+/*     document.getElementById("placePointBtn").onclick = () => {
+      if (!navigator.geolocation) return alert("Geolocation is not supported");
+      navigator.geolocation.getCurrentPosition(pos => {
+        addPoint(pos.coords.latitude, pos.coords.longitude);
+      }, err => alert("GPS Error: " + err.message));
+    }; */
+
+    map.on("click", (e) => {
+      if (collectionMode === "Manual") {
+        addPoint(e.latlng.lat, e.latlng.lng);
+      }
+    });
+
+
+    document.getElementById("clearBtn").onclick = () => {
+      if (confirm("Clear all saved points?")) {
+        points.length = 0;
+        localStorage.removeItem("points");
+        location.reload();
+      }
+    };
+
+    document.getElementById("reenterBtn").onclick = () => promptGlobals(true);
+
+    let isTracking = false;
+    let currentTrack = [];
+    let lastTrackPoint = null;
+    let watchId = null;
+
+    function distance(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    document.getElementById("startTrack").onclick = () => {
+      if (isTracking) return;
+      const id = document.getElementById("trackId").value.trim();
+      if (!id) return alert("Please enter a Track ID.");
+      currentTrack = [];
+      lastTrackPoint = null;
+      isTracking = true;
+      log(`▶️ Started track: ${id}`);
+      watchId = navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const minDist = parseFloat(document.getElementById("minDist").value || "10");
+        if (!lastTrackPoint || distance(lat, lng, lastTrackPoint[0], lastTrackPoint[1]) >= minDist) {
+          const pt = [lat, lng];
+          currentTrack.push(pt);
+          lastTrackPoint = pt;
+          log(`➕ Track point: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        }
+      }, err => {
+        log(`⚠️ GPS error: ${err.message}`);
+      }, { enableHighAccuracy: true });
+    };
+
+    document.getElementById("stopTrack").onclick = () => {
+      if (!isTracking) return;
+      isTracking = false;
+      navigator.geolocation.clearWatch(watchId);
+      const id = document.getElementById("trackId").value.trim();
+      const feature = {
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: currentTrack.map(pt => [pt[1], pt[0]])
+        },
+        properties: {
+          TRACK_ID: id,
+          SURVEYOR: surveyor(),
+          SITE: site(),
+          TYPE: "Track"
+        }
+      };
+      points.push(feature);
+      savePoints();
+      log(`⏹️ Stopped track: ${id} (${currentTrack.length} points)`);
+      renderPoints();
+    };
+
+    async function uploadToS3(filename, geojsonText) {
+      const url = `https://fraxinus-fielddata.s3.us-east-2.amazonaws.com/${filename}`;
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: geojsonText
+      });
+      if (!res.ok) throw new Error(`S3 Upload failed: ${res.status}`);
+      return url;
+    }
+
+    async function appendToUploadLog(entry) {
+      try {
+        let currentLog = [];
+        try {
+          const response = await fetch(uploadLogUrl);
+          if (response.ok) currentLog = await response.json();
+        } catch {}
+        currentLog.push(entry);
+        const res = await fetch(uploadLogUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(currentLog, null, 2)
+        });
+        if (!res.ok) throw new Error("Failed to update uploads log");
+        log("📝 Uploads log updated.");
+      } catch (err) {
+        log("⚠️ Could not update uploads log: " + err.message);
+      }
+    }
+
+    document.getElementById("uploadBtn").onclick = async () => {
+      try {
+        if (points.length === 0) return alert("No features to upload.");
+        const geojson = { type: "FeatureCollection", features: points };
+        const now = new Date();
+        const date = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+        const time = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        const filename = `${surveyor()}_${site()}_${date}_${time}_points.geojson`.replace(/\s+/g, '');
+        const fileUrl = await uploadToS3(filename, JSON.stringify(geojson));
+        log(`✅ Uploaded: ${filename}`);
+        appendToUploadLog({ filename, url: fileUrl, surveyor: surveyor(), site: site(), timestamp: new Date().toISOString() });
+      } catch (e) {
+        log("❌ Upload failed: " + e.message);
+      }
+    };
+
+    document.getElementById("loadDatasetsBtn").onclick = async () => {
+      try {
+        log("📂 Fetching uploads log...");
+        const response = await fetch(`${uploadLogUrl}?t=${Date.now()}`); //adds a timestamp to bust cache
+        const logData = await response.json();
+        logData.slice().reverse().forEach(entry => {
+          const div = document.createElement("div");
+          div.textContent = `📄 ${entry.filename}`;
+          const btn = document.createElement("button");
+          btn.textContent = "Load";
+          btn.onclick = async () => {
+            try {
+              const res = await fetch(`${entry.url}?t=${Date.now()}`);
+              const geojson = await res.json();
+              L.geoJSON(geojson, {
+                pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+                  radius: 6,
+                  color: 'cyan',
+                  fillColor: 'cyan',
+                  fillOpacity: 0.7
+                }).bindPopup(feature.properties.DESC || 'No description')
+              }).addTo(map);
+              log(`✅ Loaded: ${entry.filename}`);
+            } catch (e) {
+              log(`❌ Failed to load ${entry.filename}`);
+            }
+          };
+          div.appendChild(btn);
+          logDiv.appendChild(div);
+        });
+      } catch (err) {
+        log("⚠️ Could not fetch uploads log: " + err.message);
+      }
+    };
+
+    renderPoints();
+  });
+</script>
+</body>
+</html>
