@@ -7,6 +7,7 @@ import { MapControls } from './MapControls';
 import { BASEMAPS } from '../../types/layers';
 import type { AnyLayer, EsriRestLayer, XyzLayer, WmsLayer, GeoJsonLayer, CogLayer } from '../../types/layers';
 import { buildEsriRasterSource } from '../../lib/esriUtils';
+import { CogCustomLayer } from '../../lib/cogRenderer';
 import { useToast } from '../UI/Toast';
 import type { ReactNode } from 'react';
 
@@ -46,6 +47,10 @@ export function MapView({ children, onMapClick }: MapViewProps) {
   const { showToast } = useToast();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncedLayerIds = useRef<Set<string>>(new Set());
+  // Keeps live CogCustomLayer instances so we can update and destroy them.
+  const cogRenderers = useRef<Map<string, CogCustomLayer>>(new Map());
+  // Stable ref so the basemap effect can always call the latest syncLayers.
+  const syncLayersRef = useRef<() => void>(() => undefined);
 
   // Initialize map
   useEffect(() => {
@@ -99,6 +104,12 @@ export function MapView({ children, onMapClick }: MapViewProps) {
     const style = buildBasemapStyle(activeBasemap);
     map.setStyle(style);
     syncedLayerIds.current.clear();
+    // Tear down COG renderers (their map event listeners become invalid after setStyle).
+    for (const renderer of cogRenderers.current.values()) renderer.onRemove();
+    cogRenderers.current.clear();
+    document.querySelectorAll('[id^="cog-canvas-"]').forEach((el) => el.remove());
+    // Re-add all overlay layers once the new style has loaded.
+    map.once('styledata', () => syncLayersRef.current());
   }, [activeBasemap]);
 
   // Sync layers to map
@@ -119,6 +130,13 @@ export function MapView({ children, onMapClick }: MapViewProps) {
         if (map.getLayer(`${id}-cog-layer`)) map.removeLayer(`${id}-cog-layer`);
         if (map.getSource(id)) map.removeSource(id);
         if (map.getSource(`${id}-cog-source`)) map.removeSource(`${id}-cog-source`);
+        // Tear down COG renderer and remove its canvas from the DOM.
+        const cogRenderer = cogRenderers.current.get(id);
+        if (cogRenderer) {
+          cogRenderer.onRemove();
+          cogRenderers.current.delete(id);
+        }
+        document.getElementById(`cog-canvas-${id}`)?.remove();
         syncedLayerIds.current.delete(id);
       }
     }
@@ -132,7 +150,7 @@ export function MapView({ children, onMapClick }: MapViewProps) {
         else if (layer.type === 'esri-featureserver') addOrUpdateEsriFeatureServer(map, layer as EsriRestLayer);
         else if (layer.type === 'wms') addOrUpdateWms(map, layer as WmsLayer);
         else if (layer.type === 'geojson') addOrUpdateGeoJson(map, layer as GeoJsonLayer);
-        else if (layer.type === 'cog') addOrUpdateCog(map, layer as CogLayer);
+        else if (layer.type === 'cog') addOrUpdateCog(map, layer as CogLayer, cogRenderers.current);
         syncedLayerIds.current.add(layer.id);
       } catch (e) {
         console.error(`Layer sync error [${layer.id}]:`, e);
@@ -140,6 +158,11 @@ export function MapView({ children, onMapClick }: MapViewProps) {
       }
     }
   }, [layers, showToast]);
+
+  // Keep the ref up-to-date so the basemap effect can always call the latest version.
+  useEffect(() => {
+    syncLayersRef.current = syncLayers;
+  }, [syncLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -282,16 +305,17 @@ function addOrUpdateGeoJson(map: maplibregl.Map, layer: GeoJsonLayer) {
   }
 }
 
-function addOrUpdateCog(map: maplibregl.Map, layer: CogLayer) {
+function addOrUpdateCog(map: maplibregl.Map, layer: CogLayer, cogRenderers: Map<string, CogCustomLayer>) {
   const sourceId = `${layer.id}-cog-source`;
   const layerId = `${layer.id}-cog-layer`;
 
   if (!map.getSource(sourceId)) {
-    // Use a canvas source as the rendering target for the COG renderer
+    // Create the canvas that MapLibre's canvas source will read from.
+    // CogCustomLayer.onAdd will find this element by ID and draw into it.
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
     canvas.id = `cog-canvas-${layer.id}`;
+    canvas.style.display = 'none';
+    document.body.appendChild(canvas);
 
     map.addSource(sourceId, {
       type: 'canvas',
@@ -300,10 +324,16 @@ function addOrUpdateCog(map: maplibregl.Map, layer: CogLayer) {
       animate: true,
     } as maplibregl.CanvasSourceSpecification);
 
-    document.body.appendChild(canvas);
-    canvas.style.display = 'none';
-
     map.addLayer({ id: layerId, type: 'raster', source: sourceId });
+
+    // Instantiate and connect the renderer now that the canvas exists in the DOM.
+    const renderer = new CogCustomLayer(layer);
+    renderer.onAdd(map);
+    cogRenderers.set(layer.id, renderer);
+  } else {
+    // Propagate colour-ramp / value-range changes to the running renderer.
+    const renderer = cogRenderers.get(layer.id);
+    if (renderer) renderer.updateConfig(layer);
   }
 
   map.setPaintProperty(layerId, 'raster-opacity', layer.opacity);

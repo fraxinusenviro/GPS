@@ -48,7 +48,11 @@ export class CogCustomLayer {
 
   onAdd(map: MaplibreMap) {
     this.map = map;
-    this.canvas = document.createElement('canvas');
+    // Reuse the canvas that addOrUpdateCog already created and registered with
+    // the canvas source.  Creating a second canvas would leave the source canvas
+    // permanently blank.
+    const existing = document.getElementById(`cog-canvas-${this.config.id}`) as HTMLCanvasElement | null;
+    this.canvas = existing ?? document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d');
 
     fromUrl(this.config.url, { allowFullFile: false }).then((t) => {
