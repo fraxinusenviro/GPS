@@ -1,11 +1,14 @@
 import type { EsriServiceMetadata } from '../types/layers';
 
 export function buildEsriRasterSource(serviceUrl: string, visibleLayers: number[]) {
-  const layerParam = visibleLayers.length > 0 ? `show:${visibleLayers.join(',')}` : 'all';
+  // When specific sub-layers are selected use "show:id,id"; omit the parameter
+  // entirely otherwise — ESRI shows all visible layers by default and "layers=all"
+  // is not a valid value and causes a 400 error on most services.
+  const layerParam = visibleLayers.length > 0 ? `&layers=show:${visibleLayers.join(',')}` : '';
   return {
     type: 'raster' as const,
     tiles: [
-      `${serviceUrl}/export?bbox={bbox-epsg-3857}&bboxSR=3857&layers=${layerParam}&size=256,256&imageSR=3857&format=png32&transparent=true&f=image`,
+      `${serviceUrl}/export?bbox={bbox-epsg-3857}&bboxSR=3857${layerParam}&size=256,256&imageSR=3857&format=png&transparent=true&f=image`,
     ],
     tileSize: 256,
   };
