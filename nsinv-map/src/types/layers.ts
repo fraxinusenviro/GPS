@@ -1,0 +1,113 @@
+import type { FeatureCollection } from 'geojson';
+
+export type LayerType = 'esri-mapserver' | 'esri-featureserver' | 'cog' | 'xyz' | 'wms' | 'geojson';
+
+export interface BaseLayer {
+  id: string;
+  name: string;
+  type: LayerType;
+  visible: boolean;
+  opacity: number;
+  order: number;
+}
+
+export interface EsriServiceMetadata {
+  serviceDescription: string;
+  mapName: string;
+  layers: Array<{ id: number; name: string; defaultVisibility: boolean }>;
+  fullExtent: {
+    xmin: number;
+    ymin: number;
+    xmax: number;
+    ymax: number;
+    spatialReference: { wkid: number };
+  };
+  supportedImageFormatTypes: string;
+}
+
+export interface EsriRestLayer extends BaseLayer {
+  type: 'esri-mapserver' | 'esri-featureserver';
+  url: string;
+  serviceMetadata?: EsriServiceMetadata;
+  visibleSubLayers: number[];
+}
+
+export interface CogLayer extends BaseLayer {
+  type: 'cog';
+  url: string;
+  colorRamp: string;
+  minValue: number;
+  maxValue: number;
+  noDataValue?: number;
+  bandIndex: number;
+  gamma: number;
+  autoStretch: boolean;
+}
+
+export interface XyzLayer extends BaseLayer {
+  type: 'xyz';
+  urlTemplate: string;
+  tileSize: 256 | 512;
+  minZoom: number;
+  maxZoom: number;
+  attribution: string;
+}
+
+export interface WmsLayer extends BaseLayer {
+  type: 'wms';
+  url: string;
+  layers: string;
+  version: '1.1.1' | '1.3.0';
+  format: 'image/png' | 'image/jpeg';
+}
+
+export interface GeoJsonLayer extends BaseLayer {
+  type: 'geojson';
+  source: 'url' | 'file' | 'shapefile';
+  url?: string;
+  data?: FeatureCollection;
+  originalFileName?: string;
+  fillColor: string;
+  strokeColor: string;
+  strokeWidth: number;
+  pointRadius: number;
+  labelField?: string;
+}
+
+export type AnyLayer = EsriRestLayer | CogLayer | XyzLayer | WmsLayer | GeoJsonLayer;
+
+export interface PersistedMapState {
+  center: [number, number];
+  zoom: number;
+  bearing: number;
+  pitch: number;
+  activeBasemap: string;
+  layers: AnyLayer[];
+}
+
+export const BASEMAPS = {
+  osm: {
+    id: 'osm',
+    name: 'OpenStreetMap',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  esriSatellite: {
+    id: 'esriSatellite',
+    name: 'Esri Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles © Esri',
+  },
+  cartoDB: {
+    id: 'cartoDB',
+    name: 'CartoDB Positron',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+    attribution: '© <a href="https://carto.com">CARTO</a>',
+  },
+  blank: {
+    id: 'blank',
+    name: 'Blank/White',
+    url: '',
+    attribution: '',
+  },
+} as const;
