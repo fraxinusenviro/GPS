@@ -9,6 +9,7 @@ import type { AnyLayer, EsriRestLayer, XyzLayer, WmsLayer, GeoJsonLayer, CogLaye
 import { buildEsriRasterSource } from '../../lib/esriUtils';
 import { CogCustomLayer } from '../../lib/cogRenderer';
 import { useToast } from '../UI/Toast';
+import { useLogStore } from '../../store/logStore';
 import type { ReactNode } from 'react';
 
 const DEBOUNCE_MS = 300;
@@ -45,6 +46,7 @@ export function MapView({ children, onMapClick }: MapViewProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const { layers, activeBasemap, mapView, setMapView } = useLayerStore();
   const { showToast } = useToast();
+  const logEntry = useLogStore((s) => s.log);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncedLayerIds = useRef<Set<string>>(new Set());
   // Keeps live CogCustomLayer instances so we can update and destroy them.
@@ -81,6 +83,11 @@ export function MapView({ children, onMapClick }: MapViewProps) {
 
     map.on('moveend', saveView);
     map.on('zoomend', saveView);
+
+    // Forward MapLibre tile/source errors to the layer console.
+    map.on('error', (e) => {
+      useLogStore.getState().log('error', `Map error: ${e.error?.message ?? String(e.error)}`);
+    });
 
     return () => {
       map.remove();
@@ -144,6 +151,7 @@ export function MapView({ children, onMapClick }: MapViewProps) {
     // Add/update layers
     const sorted = [...layers].sort((a, b) => a.order - b.order);
     for (const layer of sorted) {
+      const isNew = !syncedLayerIds.current.has(layer.id);
       try {
         if (layer.type === 'xyz') addOrUpdateXyz(map, layer as XyzLayer);
         else if (layer.type === 'esri-mapserver') addOrUpdateEsriMapServer(map, layer as EsriRestLayer);
@@ -151,13 +159,18 @@ export function MapView({ children, onMapClick }: MapViewProps) {
         else if (layer.type === 'wms') addOrUpdateWms(map, layer as WmsLayer);
         else if (layer.type === 'geojson') addOrUpdateGeoJson(map, layer as GeoJsonLayer);
         else if (layer.type === 'cog') addOrUpdateCog(map, layer as CogLayer, cogRenderers.current);
+        if (isNew) logEntry('info', `Added layer "${layer.name}" (${layer.type})`);
         syncedLayerIds.current.add(layer.id);
       } catch (e) {
+        const msg = (e as Error).message;
+        logEntry('error', `Failed to add "${layer.name}": ${msg}`);
         console.error(`Layer sync error [${layer.id}]:`, e);
         showToast(`Error loading layer "${layer.name}"`, 'error');
       }
     }
-  }, [layers, showToast]);
+    // Ensure MapLibre schedules a render frame after any source/layer changes.
+    map.triggerRepaint();
+  }, [layers, logEntry, showToast]);
 
   // Keep the ref up-to-date so the basemap effect can always call the latest version.
   useEffect(() => {
@@ -172,6 +185,10 @@ export function MapView({ children, onMapClick }: MapViewProps) {
     } else {
       map.once('styledata', syncLayers);
     }
+    // Clean up: if this effect re-runs before the style event fires (e.g. layers
+    // added quickly during initial load), remove the stale listener so it doesn't
+    // fire with out-of-date layer state.
+    return () => { map.off('styledata', syncLayers); };
   }, [layers, syncLayers]);
 
   return (
