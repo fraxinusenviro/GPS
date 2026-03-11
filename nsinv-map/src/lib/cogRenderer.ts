@@ -3,6 +3,7 @@ import type { GeoTIFF, GeoTIFFImage } from 'geotiff';
 import { COLOR_RAMPS, applyColorRamp } from './colorRamps';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { CogLayer } from '../types/layers';
+import { mapLog } from '../store/logStore';
 
 // Reproject lon/lat bounds to pixel window in the GeoTIFF
 function bboxToWindow(
@@ -55,12 +56,17 @@ export class CogCustomLayer {
     this.canvas = existing ?? document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d');
 
+    mapLog('info', `COG "${this.config.name}": opening ${this.config.url}`);
     fromUrl(this.config.url, { allowFullFile: false }).then((t) => {
       this.tiff = t;
       map.on('moveend', this.render_2d);
       map.on('zoomend', this.render_2d);
+      mapLog('success', `COG "${this.config.name}": file opened, starting render`);
       this.render_2d();
-    }).catch(console.error);
+    }).catch((err) => {
+      mapLog('error', `COG "${this.config.name}": failed to open – ${(err as Error).message}`);
+      console.error(err);
+    });
   }
 
   onRemove() {
@@ -151,6 +157,7 @@ export class CogCustomLayer {
         ]);
       }
     } catch (err) {
+      mapLog('error', `COG "${this.config.name}": render error – ${(err as Error).message}`);
       console.warn('COG render error:', err);
     } finally {
       this.rendering = false;

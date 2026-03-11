@@ -10,6 +10,52 @@ import { fromUrl } from 'geotiff';
 import { XMLParser } from 'fast-xml-parser';
 
 const TABS = ['ESRI REST', 'COG', 'XYZ Tiles', 'WMS', 'Vector'] as const;
+
+// ── ESRI service presets (imported from QGIS connections XML) ────────────────
+const ESRI_PRESETS: { name: string; url: string }[] = [
+  { name: '00 FED EC – Canadian Wetlands', url: 'https://maps-cartes.ec.gc.ca/arcgis/rest/services/Canadian_Wetlands_Terre_Humides_du_Canada/MapServer' },
+  { name: '00 FED IAAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/IAAC' },
+  { name: '00 FED INAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/INAC' },
+  { name: '00 FED INFC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/INFC' },
+  { name: '00 FED JUS All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/JUS' },
+  { name: '00 FED NRCan All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/NRCan' },
+  { name: '00 FED PCH All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/PCH' },
+  { name: '00 FED PHAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/PHAC' },
+  { name: '00 FED PS All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/PS' },
+  { name: '00 FED RNCan All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/RNCan' },
+  { name: '00 FED STATCan All Services', url: 'https://maps-cartes.services.geo.ca/server2_serveur2/rest/services/StatCan' },
+  { name: '00 FED TC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/TC' },
+  { name: '00 FED VAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/VAC' },
+  { name: '01 NS Fire', url: 'https://services7.arcgis.com/guiEgv5T1fmjU8SW/ArcGIS/rest/services' },
+  { name: '01 PROV NS – ATVANS Trails', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/ATVANS_Trails_Data/FeatureServer' },
+  { name: '01 PROV NS – All Services', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services' },
+  { name: '01 PROV NS – BASE (Base Mapping)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE' },
+  { name: '01 PROV NS – BIO (NS Landscape Viewer)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BIO/WLD_ProvLandScapeViewer_UT83/MapServer' },
+  { name: '01 PROV NS – BND (Admin Boundaries)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND' },
+  { name: '01 PROV NS – CIMD', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/CIMD/FeatureServer' },
+  { name: '01 PROV NS – CLIM (Climate)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/CLIM' },
+  { name: '01 PROV NS – Campsite Leases', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/Campsite_lease_license_and_related_features/FeatureServer' },
+  { name: '01 PROV NS – ELEV (Elevation / LiDAR)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ELEV' },
+  { name: '01 PROV NS – ENV (NSECC Protected Areas)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ENV' },
+  { name: '01 PROV NS – FARM (Agricultural Areas)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FARM' },
+  { name: '01 PROV NS – FOR (NSDNRR Forestry)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR' },
+  { name: '01 PROV NS – GEOL Fletcher (NSDNRR)', url: 'https://fletcher.novascotia.ca/arcgis/rest/services' },
+  { name: '01 PROV NS – GEOL (Geology, Soils, HydroGeo)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/GEOL' },
+  { name: '01 PROV NS – HLTH (Health)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH' },
+  { name: '01 PROV NS – LOC (Survey Control Monuments)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/LOC' },
+  { name: '01 PROV NS – NSECC RANDOM All Services', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services' },
+  { name: '01 PROV NS – NSPI (NS Power)', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/arcgis/rest/services/NS_Power_Inc_Features/FeatureServer' },
+  { name: '01 PROV NS – NSPRD (Property Records)', url: 'https://nsgiwa2.novascotia.ca/arcgis/rest/services/PLAN/PLAN_NSPRD_UT83/MapServer' },
+  { name: '01 PROV NS – OCN', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/OCN' },
+  { name: '01 PROV NS – PLAN (Crown Lands, Harvest, MU)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/PLAN' },
+  { name: '01 PROV NS – SANS Trails', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/SANS_Trails_Data/FeatureServer' },
+  { name: '01 PROV NS – SOC (Census)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/SOC' },
+  { name: '01 PROV NS – STRU (Structures)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/STRU' },
+  { name: '01 PROV NS – TRNS (Transportation)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS' },
+  { name: '01 PROV NS – WTR (Water)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/WTR' },
+  { name: '02 MUNI HRM', url: 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services' },
+  { name: '?? ECCC', url: 'https://services1.arcgis.com/d0ZCwU7eGKVeNiEE/ArcGIS/rest/services' },
+];
 type Tab = typeof TABS[number];
 
 const PRESET_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
@@ -91,6 +137,8 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
   const [meta, setMeta] = useState<Awaited<ReturnType<typeof fetchEsriServiceMetadata>> | null>(null);
   const [selectedLayers, setSelectedLayers] = useState<number[]>([]);
   const [isFeatureServer, setIsFeatureServer] = useState(false);
+  const [presetFilter, setPresetFilter] = useState('');
+  const [showPresets, setShowPresets] = useState(false);
 
   const handleFetch = async () => {
     setLoading(true); setError(''); setMeta(null);
@@ -123,8 +171,49 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
     onAdd(layer);
   };
 
+  const filteredPresets = ESRI_PRESETS.filter((p) =>
+    p.name.toLowerCase().includes(presetFilter.toLowerCase()) ||
+    p.url.toLowerCase().includes(presetFilter.toLowerCase())
+  );
+
   return (
     <div className="space-y-4">
+      {/* Presets */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowPresets((v) => !v)}
+          className="text-xs font-medium text-accent hover:underline flex items-center gap-1"
+        >
+          {showPresets ? '▾' : '▸'} Saved connections ({ESRI_PRESETS.length})
+        </button>
+        {showPresets && (
+          <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+            <input
+              type="text"
+              value={presetFilter}
+              onChange={(e) => setPresetFilter(e.target.value)}
+              placeholder="Filter connections…"
+              className="w-full px-3 py-1.5 text-xs border-b border-slate-200 focus:outline-none"
+            />
+            <ul className="max-h-48 overflow-y-auto divide-y divide-slate-100">
+              {filteredPresets.map((p) => (
+                <li key={p.url}>
+                  <button
+                    type="button"
+                    onClick={() => { setUrl(p.url); setMeta(null); setShowPresets(false); setPresetFilter(''); }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                  >
+                    <p className="text-xs font-medium text-slate-700 truncate">{p.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{p.url}</p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
       <div>
         <label className="text-sm font-medium text-slate-700 block mb-1">Service URL</label>
         <input

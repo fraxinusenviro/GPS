@@ -1,8 +1,9 @@
-import { ZoomIn, ZoomOut, Home, Locate, Layers } from 'lucide-react';
+import { ZoomIn, ZoomOut, Home, Locate, Layers, Terminal } from 'lucide-react';
 import { useMap } from '../../hooks/useMap';
 import { BASEMAPS } from '../../types/layers';
 import { useLayerStore } from '../../store/layerStore';
 import { useState } from 'react';
+import { LayerConsole } from '../UI/LayerConsole';
 
 const NOVA_SCOTIA_CENTER: [number, number] = [-63.0, 45.0];
 const NOVA_SCOTIA_ZOOM = 7;
@@ -11,11 +12,13 @@ export function MapControls() {
   const mapRef = useMap();
   const { activeBasemap, setBasemap } = useLayerStore();
   const [showBasemaps, setShowBasemaps] = useState(false);
+  const [showConsole, setShowConsole] = useState(false);
 
   const btn = 'flex items-center justify-center w-9 h-9 bg-white text-slate-700 rounded shadow hover:bg-slate-50 transition-colors';
 
   return (
     <div className="absolute right-3 top-3 flex flex-col gap-1.5 z-10">
+      {showConsole && <LayerConsole />}
       <button className={btn} title="Zoom in" onClick={() => mapRef.current?.zoomIn()}>
         <ZoomIn size={16} />
       </button>
@@ -39,6 +42,13 @@ export function MapControls() {
         }}
       >
         <Locate size={16} />
+      </button>
+      <button
+        className={`${btn} ${showConsole ? 'bg-accent text-white' : ''}`}
+        title="Layer console"
+        onClick={() => setShowConsole((v) => !v)}
+      >
+        <Terminal size={16} />
       </button>
       <div className="relative">
         <button
