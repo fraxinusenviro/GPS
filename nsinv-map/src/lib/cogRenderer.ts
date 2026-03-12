@@ -10,16 +10,19 @@ import { mapLog } from '../store/logStore';
 // while applyColorRamp processes them.  512 px gives a good quality/perf balance.
 const MAX_RENDER_PX = 512;
 
-// Reproject lon/lat bounds to pixel window in the GeoTIFF
+// Reproject lon/lat bounds to pixel window in the GeoTIFF.
+// resolutionImage: optional reference image to borrow pixel scale from (needed for
+// overview images that lack a ModelPixelScaleTag of their own).
 function bboxToWindow(
   image: GeoTIFFImage,
   west: number,
   south: number,
   east: number,
   north: number,
+  resolutionImage?: GeoTIFFImage,
 ): [number, number, number, number] {
   const [ox, oy, , ,] = image.getOrigin();
-  const [rx, ry] = image.getResolution();
+  const [rx, ry] = image.getResolution(resolutionImage);
   const w = image.getWidth();
   const h = image.getHeight();
   const x1 = Math.max(0, Math.floor((west - ox) / rx));
@@ -124,14 +127,22 @@ export class CogCustomLayer {
       const ovIdx = Math.max(0, Math.min(imageCount - 1, Math.floor((20 - zoom) / 3)));
       const image = await this.tiff.getImage(ovIdx);
 
-      const bbox = image.getBoundingBox();
+      // Overview images (ovIdx > 0) often lack ModelPixelScaleTag and throw
+      // "The image does not have an affine transformation" when getResolution()
+      // or getBoundingBox() is called without a reference image.  We load the
+      // base image (index 0) so overviews can borrow its pixel scale.
+      const baseImage = ovIdx > 0 ? await this.tiff.getImage(0) : image;
+
+      // Use the base image for bounding box – overviews cover the same extent
+      // but their getBoundingBox() may throw without affine tags.
+      const bbox = baseImage.getBoundingBox();
       // Check overlap
       if (east < bbox[0] || west > bbox[2] || north < bbox[1] || south > bbox[3]) {
         this.rendering = false;
         return;
       }
 
-      const window = bboxToWindow(image, west, south, east, north);
+      const window = bboxToWindow(image, west, south, east, north, baseImage);
       if (window[2] <= window[0] || window[3] <= window[1]) {
         this.rendering = false;
         return;
