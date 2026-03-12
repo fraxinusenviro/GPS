@@ -464,21 +464,69 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
 
 // ── COG Tab ─────────────────────────────────────────────────────────────────
 
+interface CogInfo {
+  width: number;
+  height: number;
+  bands: number;
+  overviews: number;
+  statsMin?: number;
+  statsMax?: number;
+  noDataValue?: number;
+  statsSource: 'gdal' | 'none';
+}
+
 function CogTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [info, setInfo] = useState<{ width: number; height: number; bands: number } | null>(null);
+  const [info, setInfo] = useState<CogInfo | null>(null);
   const [colorRamp, setColorRamp] = useState('terrain');
-  const [minVal, setMinVal] = useState(0);
-  const [maxVal, setMaxVal] = useState(10);
+  const [minVal, setMinVal] = useState<number | ''>('');
+  const [maxVal, setMaxVal] = useState<number | ''>('');
+  const [noDataVal, setNoDataVal] = useState<number | ''>('');
+  const [autoStretch, setAutoStretch] = useState(true);
 
   const handleFetch = async () => {
     setLoading(true); setError(''); setInfo(null);
     try {
       const tiff = await fromUrl(url, { allowFullFile: false });
       const image = await tiff.getImage();
-      setInfo({ width: image.getWidth(), height: image.getHeight(), bands: image.getSamplesPerPixel() });
+      const overviews = await tiff.getImageCount();
+      const noData = image.getGDALNoData();
+
+      // Try GDAL pre-computed statistics (fastest, no data read required)
+      let statsMin: number | undefined;
+      let statsMax: number | undefined;
+      let statsSource: CogInfo['statsSource'] = 'none';
+      try {
+        const gdalMeta = await image.getGDALMetadata(0);
+        if (gdalMeta) {
+          const mn = parseFloat(String(gdalMeta['STATISTICS_MINIMUM'] ?? ''));
+          const mx = parseFloat(String(gdalMeta['STATISTICS_MAXIMUM'] ?? ''));
+          if (isFinite(mn) && isFinite(mx)) {
+            statsMin = mn; statsMax = mx; statsSource = 'gdal';
+          }
+        }
+      } catch { /* no GDAL stats – fall through */ }
+
+      setInfo({
+        width: image.getWidth(), height: image.getHeight(),
+        bands: image.getSamplesPerPixel(), overviews,
+        statsMin, statsMax,
+        noDataValue: noData ?? undefined,
+        statsSource,
+      });
+
+      // Pre-fill range if statistics were found
+      if (statsMin !== undefined && statsMax !== undefined) {
+        setMinVal(parseFloat(statsMin.toFixed(4)));
+        setMaxVal(parseFloat(statsMax.toFixed(4)));
+      } else {
+        setMinVal('');
+        setMaxVal('');
+      }
+      if (noData !== null) setNoDataVal(noData);
+      else setNoDataVal('');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -489,18 +537,19 @@ function CogTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
   const handleAdd = () => {
     const layer: CogLayer = {
       id: uid(),
-      name: url.split('/').pop()?.replace('.tif', '') || 'COG Layer',
+      name: url.split('/').pop()?.replace(/\.tiff?$/i, '') || 'COG Layer',
       type: 'cog',
       visible: true,
       opacity: 1,
       order: 0,
       url,
       colorRamp,
-      minValue: minVal,
-      maxValue: maxVal,
+      minValue: minVal === '' ? 0 : minVal,
+      maxValue: maxVal === '' ? 1 : maxVal,
+      noDataValue: noDataVal === '' ? undefined : noDataVal,
       bandIndex: 0,
       gamma: 1,
-      autoStretch: true,
+      autoStretch,
     };
     onAdd(layer);
   };
@@ -533,9 +582,17 @@ function CogTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
         </div>
       )}
       {info && (
-        <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600 space-y-1">
-          <p><span className="font-medium">Size:</span> {info.width} × {info.height} px</p>
-          <p><span className="font-medium">Bands:</span> {info.bands}</p>
+        <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600 space-y-0.5">
+          <p><span className="font-medium">Size:</span> {info.width} × {info.height} px &nbsp;|&nbsp; <span className="font-medium">Bands:</span> {info.bands} &nbsp;|&nbsp; <span className="font-medium">Overviews:</span> {info.overviews}</p>
+          {info.statsSource === 'gdal' && info.statsMin !== undefined && (
+            <p className="text-green-700"><span className="font-medium">GDAL stats:</span> min={info.statsMin.toFixed(4)}, max={info.statsMax?.toFixed(4)} <span className="text-slate-400">(range pre-filled below)</span></p>
+          )}
+          {info.statsSource === 'none' && (
+            <p className="text-amber-600">No pre-computed statistics found — auto-stretch will compute range from visible pixels at render time.</p>
+          )}
+          {info.noDataValue !== undefined && (
+            <p><span className="font-medium">NoData:</span> {info.noDataValue} <span className="text-slate-400">(pre-filled below)</span></p>
+          )}
         </div>
       )}
       <div>
@@ -550,16 +607,29 @@ function CogTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
           ))}
         </select>
       </div>
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="text-sm font-medium text-slate-700 block mb-1">Min Value</label>
-          <input type="number" value={minVal} onChange={(e) => setMinVal(parseFloat(e.target.value))}
-            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-accent" />
+      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <input type="checkbox" checked={autoStretch} onChange={(e) => setAutoStretch(e.target.checked)} className="accent-accent" />
+        Auto-stretch to visible pixels
+        <span className="text-xs text-slate-400">(overrides min/max per render)</span>
+      </label>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className="text-xs font-medium text-slate-700 block mb-1">Min Value</label>
+          <input type="number" step="any" value={minVal} onChange={(e) => setMinVal(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            placeholder="auto"
+            className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-accent" />
         </div>
-        <div className="flex-1">
-          <label className="text-sm font-medium text-slate-700 block mb-1">Max Value</label>
-          <input type="number" value={maxVal} onChange={(e) => setMaxVal(parseFloat(e.target.value))}
-            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-accent" />
+        <div>
+          <label className="text-xs font-medium text-slate-700 block mb-1">Max Value</label>
+          <input type="number" step="any" value={maxVal} onChange={(e) => setMaxVal(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            placeholder="auto"
+            className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-accent" />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-700 block mb-1">NoData</label>
+          <input type="number" step="any" value={noDataVal} onChange={(e) => setNoDataVal(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            placeholder="none"
+            className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-accent" />
         </div>
       </div>
       <button
@@ -576,13 +646,58 @@ function CogTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
 
 // ── XYZ Tab ──────────────────────────────────────────────────────────────────
 
+const XYZ_PRESET_GROUPS: { group: string; items: { name: string; url: string; minZoom: number; maxZoom: number; attribution?: string }[] }[] = [
+  {
+    group: 'ESRI Basemaps',
+    items: [
+      { name: 'ESRI Light Grey Base', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 18, attribution: 'Tiles © Esri' },
+      { name: 'ESRI NatGeo', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 18, attribution: 'Tiles © Esri, National Geographic' },
+      { name: 'ESRI Ocean Basemap', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 18, attribution: 'Tiles © Esri' },
+      { name: 'ESRI Street Map', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 23, attribution: 'Tiles © Esri' },
+      { name: 'ESRI Topographic', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 18, attribution: 'Tiles © Esri' },
+      { name: 'ESRI World Imagery', url: 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 18, attribution: 'Tiles © Esri' },
+      { name: 'ESRI World Physical', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 8, attribution: 'Tiles © Esri' },
+      { name: 'ESRI World Shaded Relief', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 18, attribution: 'Tiles © Esri' },
+      { name: 'ESRI World Terrain', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', minZoom: 0, maxZoom: 18, attribution: 'Tiles © Esri' },
+    ],
+  },
+  {
+    group: 'Google Maps',
+    items: [
+      { name: 'Google Hybrid', url: 'http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}', minZoom: 0, maxZoom: 18 },
+      { name: 'Google Satellite', url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', minZoom: 0, maxZoom: 18 },
+      { name: 'Google Street', url: 'https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}', minZoom: 0, maxZoom: 18 },
+      { name: 'Google Terrain', url: 'http://mt0.google.com/vt/lyrs=t&hl=en&x={x}&y={y}&z={z}', minZoom: 0, maxZoom: 18 },
+    ],
+  },
+  {
+    group: 'Other',
+    items: [
+      { name: 'Mapzen Global Terrain', url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', minZoom: 0, maxZoom: 15 },
+      { name: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', minZoom: 0, maxZoom: 19, attribution: '© OpenStreetMap contributors' },
+    ],
+  },
+];
+
 function XyzTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
   const [urlTemplate, setUrlTemplate] = useState('');
   const [name, setName] = useState('');
   const [tileSize, setTileSize] = useState<256 | 512>(256);
   const [minZoom, setMinZoom] = useState(0);
   const [maxZoom, setMaxZoom] = useState(22);
+  const [showXyzPresets, setShowXyzPresets] = useState(false);
+  const [xyzExpandedGroups, setXyzExpandedGroups] = useState<Set<string>>(new Set());
   const [attribution, setAttribution] = useState('');
+
+  const totalXyzPresets = XYZ_PRESET_GROUPS.reduce((sum, g) => sum + g.items.length, 0);
+
+  const toggleXyzGroup = (group: string) => {
+    setXyzExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group); else next.add(group);
+      return next;
+    });
+  };
 
   const handleAdd = () => {
     const layer: XyzLayer = {
@@ -603,6 +718,58 @@ function XyzTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
 
   return (
     <div className="space-y-4">
+      {/* Presets */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowXyzPresets((v) => !v)}
+          className="text-xs font-medium text-accent hover:underline flex items-center gap-1"
+        >
+          {showXyzPresets ? '▾' : '▸'} Saved connections ({totalXyzPresets})
+        </button>
+        {showXyzPresets && (
+          <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="max-h-64 overflow-y-auto">
+              {XYZ_PRESET_GROUPS.map((g) => (
+                <div key={g.group}>
+                  <button
+                    type="button"
+                    onClick={() => toggleXyzGroup(g.group)}
+                    className="w-full text-left px-3 py-1.5 bg-slate-50 hover:bg-slate-100 flex items-center gap-1.5 border-b border-slate-200"
+                  >
+                    <span className="text-slate-400 text-xs">{xyzExpandedGroups.has(g.group) ? '▾' : '▸'}</span>
+                    <span className="text-xs font-semibold text-slate-600 flex-1">{g.group}</span>
+                    <span className="text-xs text-slate-400">{g.items.length}</span>
+                  </button>
+                  {xyzExpandedGroups.has(g.group) && (
+                    <ul className="divide-y divide-slate-100">
+                      {g.items.map((p) => (
+                        <li key={p.url}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUrlTemplate(p.url);
+                              setName(p.name);
+                              setMinZoom(p.minZoom);
+                              setMaxZoom(p.maxZoom);
+                              setAttribution(p.attribution ?? '');
+                              setShowXyzPresets(false);
+                            }}
+                            className="w-full text-left px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                          >
+                            <p className="text-xs font-medium text-slate-700">{p.name}</p>
+                            <p className="text-xs text-slate-400 truncate">{p.url}</p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
       <div>
         <label className="text-sm font-medium text-slate-700 block mb-1">URL Template</label>
         <input

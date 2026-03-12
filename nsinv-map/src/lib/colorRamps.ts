@@ -96,7 +96,7 @@ export function applyColorRamp(
   const range = maxVal - minVal || 1;
   for (let i = 0; i < values.length; i++) {
     const v = values[i];
-    if (noDataValue !== undefined && v === noDataValue) {
+    if (!isFinite(v) || (noDataValue !== undefined && v === noDataValue)) {
       imageData.data[i * 4 + 3] = 0;
       continue;
     }
