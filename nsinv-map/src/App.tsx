@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
+import { Plus } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
 import { MapView } from './components/Map/MapView';
 import { LayerManager } from './components/Map/LayerManager';
+import { AddLayerModal } from './components/Map/AddLayerModal';
 import { Sidebar } from './components/UI/Sidebar';
 import { Toolbar } from './components/UI/Toolbar';
 import { ToastProvider } from './components/UI/Toast';
@@ -21,6 +23,11 @@ function AppContent() {
   const layers = useLayerStore((s) => s.layers);
   const [identifyResults, setIdentifyResults] = useState<IdentifyFeature[] | null>(null);
   const [identifyLoading, setIdentifyLoading] = useState(false);
+  // Track sidebar state so the FAB can be shown when the sidebar is collapsed.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768,
+  );
+  const [showFabModal, setShowFabModal] = useState(false);
 
   const handleMapClick = useCallback(async (e: maplibregl.MapMouseEvent) => {
     const esriLayers = layers.filter(
@@ -66,7 +73,7 @@ function AppContent() {
     <div className="flex flex-col h-screen bg-slate-900 font-sans">
       <Toolbar />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar>
+        <Sidebar onCollapsedChange={setSidebarCollapsed}>
           <LayerManager />
         </Sidebar>
         <div className="flex-1 relative overflow-hidden">
@@ -79,7 +86,19 @@ function AppContent() {
                 onClose={() => setIdentifyResults(null)}
               />
             )}
+            {/* FAB: visible whenever the sidebar is collapsed (especially on mobile) */}
+            {sidebarCollapsed && (
+              <button
+                onClick={() => setShowFabModal(true)}
+                className="absolute bottom-6 left-4 z-20 w-12 h-12 rounded-full bg-accent hover:bg-accent-hover text-white shadow-lg flex items-center justify-center transition-colors"
+                aria-label="Add Layer"
+                title="Add Layer"
+              >
+                <Plus size={22} />
+              </button>
+            )}
           </MapView>
+          {showFabModal && <AddLayerModal onClose={() => setShowFabModal(false)} />}
         </div>
       </div>
     </div>

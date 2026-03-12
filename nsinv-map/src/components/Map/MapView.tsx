@@ -218,16 +218,23 @@ export function MapView({ children, onMapClick }: MapViewProps) {
 
 // ── Layer sync helpers ──────────────────────────────────────────────────────
 
-/** Apply MapLibre raster paint properties from optional RasterEnhancement. */
+/** Apply MapLibre raster paint properties from optional RasterEnhancement.
+ *  Gamma is approximated via the brightness range (MapLibre has no native gamma):
+ *  gamma < 1 → lift the black point (brightens midtones)
+ *  gamma > 1 → pull down the white point (darkens midtones)
+ */
 function applyRasterEnhancement(map: maplibregl.Map, layerId: string, layer: { rasterEnhancement?: import('../../types/layers').RasterEnhancement }) {
   const e = layer.rasterEnhancement;
   if (!e) return;
-  if (e.brightnessMin !== undefined) map.setPaintProperty(layerId, 'raster-brightness-min', e.brightnessMin);
-  if (e.brightnessMax !== undefined) map.setPaintProperty(layerId, 'raster-brightness-max', e.brightnessMax);
-  if (e.contrast      !== undefined) map.setPaintProperty(layerId, 'raster-contrast',       e.contrast);
-  if (e.saturation    !== undefined) map.setPaintProperty(layerId, 'raster-saturation',     e.saturation);
-  if (e.hueRotate     !== undefined) map.setPaintProperty(layerId, 'raster-hue-rotate',     e.hueRotate);
-  if (e.resampling    !== undefined) map.setPaintProperty(layerId, 'raster-resampling',     e.resampling);
+  const g = e.gamma ?? 1;
+  const effMin = g < 1 ? Math.min(e.brightnessMin + (1 - g) * 0.35, 0.9) : e.brightnessMin;
+  const effMax = g > 1 ? Math.max(e.brightnessMax / g, effMin + 0.05)     : e.brightnessMax;
+  map.setPaintProperty(layerId, 'raster-brightness-min', effMin);
+  map.setPaintProperty(layerId, 'raster-brightness-max', effMax);
+  if (e.contrast   !== undefined) map.setPaintProperty(layerId, 'raster-contrast',   e.contrast);
+  if (e.saturation !== undefined) map.setPaintProperty(layerId, 'raster-saturation', e.saturation);
+  if (e.hueRotate  !== undefined) map.setPaintProperty(layerId, 'raster-hue-rotate', e.hueRotate);
+  if (e.resampling !== undefined) map.setPaintProperty(layerId, 'raster-resampling', e.resampling);
 }
 
 function addOrUpdateXyz(map: maplibregl.Map, layer: XyzLayer) {

@@ -139,7 +139,7 @@ function SliderRow({ label, value, min, max, step, display, onChange }: {
 // ── Raster enhancement panel (ESRI MapServer, WMS, XYZ, COG) ─────────────────
 
 const DEFAULT_ENH: RasterEnhancement = {
-  brightnessMin: 0, brightnessMax: 1, contrast: 0, saturation: 0, hueRotate: 0, resampling: 'linear',
+  brightnessMin: 0, brightnessMax: 1, contrast: 0, saturation: 0, hueRotate: 0, gamma: 1, resampling: 'linear',
 };
 
 function RasterEnhancementEditor({ value, onChange }: {
@@ -171,6 +171,8 @@ function RasterEnhancementEditor({ value, onChange }: {
             display={e.contrast.toFixed(2)} onChange={(v) => set('contrast', v)} />
           <SliderRow label="Saturation" value={e.saturation} min={-1} max={1} step={0.01}
             display={e.saturation.toFixed(2)} onChange={(v) => set('saturation', v)} />
+          <SliderRow label="Gamma" value={e.gamma ?? 1} min={0.1} max={3} step={0.1}
+            display={(e.gamma ?? 1).toFixed(1)} onChange={(v) => set('gamma', v)} />
           <SliderRow label="Hue rotate" value={e.hueRotate} min={0} max={360} step={1}
             display={`${Math.round(e.hueRotate)}°`} onChange={(v) => set('hueRotate', v)} />
           <div className="flex items-center gap-2">
