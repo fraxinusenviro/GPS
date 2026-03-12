@@ -1,9 +1,14 @@
-import { Download, Upload, Map } from 'lucide-react';
+import { Download, Upload, Map, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { useLayerStore } from '../../store/layerStore';
 import { useToast } from './Toast';
 import { useRef } from 'react';
 
-export function Toolbar() {
+interface Props {
+  sidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
+}
+
+export function Toolbar({ sidebarCollapsed, onToggleSidebar }: Props) {
   const { exportState, importState } = useLayerStore();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +44,15 @@ export function Toolbar() {
 
   return (
     <div className="flex items-center gap-1 px-3 py-2 bg-sidebar border-b border-slate-700">
+      {/* Sidebar toggle — always visible so users can reopen the layer panel */}
+      <button
+        onClick={onToggleSidebar}
+        title={sidebarCollapsed ? 'Open layer panel' : 'Close layer panel'}
+        className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors mr-1"
+      >
+        {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+      </button>
+
       <div className="flex items-center gap-2 flex-1">
         <Map size={20} className="text-accent" />
         <span className="text-white font-semibold text-sm tracking-wide">NSINV Map</span>

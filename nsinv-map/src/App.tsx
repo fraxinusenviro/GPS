@@ -71,9 +71,9 @@ function AppContent() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-900 font-sans">
-      <Toolbar />
+      <Toolbar sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed((v) => !v)} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onCollapsedChange={setSidebarCollapsed}>
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((v) => !v)}>
           <LayerManager />
         </Sidebar>
         <div className="flex-1 relative overflow-hidden">
