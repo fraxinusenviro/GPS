@@ -11,50 +11,222 @@ import { XMLParser } from 'fast-xml-parser';
 
 const TABS = ['ESRI REST', 'COG', 'XYZ Tiles', 'WMS', 'Vector'] as const;
 
-// ── ESRI service presets (imported from QGIS connections XML) ────────────────
-const ESRI_PRESETS: { name: string; url: string }[] = [
-  { name: '00 FED EC – Canadian Wetlands', url: 'https://maps-cartes.ec.gc.ca/arcgis/rest/services/Canadian_Wetlands_Terre_Humides_du_Canada/MapServer' },
-  { name: '00 FED IAAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/IAAC' },
-  { name: '00 FED INAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/INAC' },
-  { name: '00 FED INFC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/INFC' },
-  { name: '00 FED JUS All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/JUS' },
-  { name: '00 FED NRCan All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/NRCan' },
-  { name: '00 FED PCH All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/PCH' },
-  { name: '00 FED PHAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/PHAC' },
-  { name: '00 FED PS All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/PS' },
-  { name: '00 FED RNCan All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/RNCan' },
-  { name: '00 FED STATCan All Services', url: 'https://maps-cartes.services.geo.ca/server2_serveur2/rest/services/StatCan' },
-  { name: '00 FED TC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/TC' },
-  { name: '00 FED VAC All Services', url: 'https://maps-cartes.services.geo.ca/server_serveur/rest/services/VAC' },
-  { name: '01 NS Fire', url: 'https://services7.arcgis.com/guiEgv5T1fmjU8SW/ArcGIS/rest/services' },
-  { name: '01 PROV NS – ATVANS Trails', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/ATVANS_Trails_Data/FeatureServer' },
-  { name: '01 PROV NS – All Services', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services' },
-  { name: '01 PROV NS – BASE (Base Mapping)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE' },
-  { name: '01 PROV NS – BIO (NS Landscape Viewer)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BIO/WLD_ProvLandScapeViewer_UT83/MapServer' },
-  { name: '01 PROV NS – BND (Admin Boundaries)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND' },
-  { name: '01 PROV NS – CIMD', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/CIMD/FeatureServer' },
-  { name: '01 PROV NS – CLIM (Climate)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/CLIM' },
-  { name: '01 PROV NS – Campsite Leases', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/Campsite_lease_license_and_related_features/FeatureServer' },
-  { name: '01 PROV NS – ELEV (Elevation / LiDAR)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ELEV' },
-  { name: '01 PROV NS – ENV (NSECC Protected Areas)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ENV' },
-  { name: '01 PROV NS – FARM (Agricultural Areas)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FARM' },
-  { name: '01 PROV NS – FOR (NSDNRR Forestry)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR' },
-  { name: '01 PROV NS – GEOL Fletcher (NSDNRR)', url: 'https://fletcher.novascotia.ca/arcgis/rest/services' },
-  { name: '01 PROV NS – GEOL (Geology, Soils, HydroGeo)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/GEOL' },
-  { name: '01 PROV NS – HLTH (Health)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH' },
-  { name: '01 PROV NS – LOC (Survey Control Monuments)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/LOC' },
-  { name: '01 PROV NS – NSECC RANDOM All Services', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services' },
-  { name: '01 PROV NS – NSPI (NS Power)', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/arcgis/rest/services/NS_Power_Inc_Features/FeatureServer' },
-  { name: '01 PROV NS – NSPRD (Property Records)', url: 'https://nsgiwa2.novascotia.ca/arcgis/rest/services/PLAN/PLAN_NSPRD_UT83/MapServer' },
-  { name: '01 PROV NS – OCN', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/OCN' },
-  { name: '01 PROV NS – PLAN (Crown Lands, Harvest, MU)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/PLAN' },
-  { name: '01 PROV NS – SANS Trails', url: 'https://services1.arcgis.com/qpxtVXh93G601MmT/ArcGIS/rest/services/SANS_Trails_Data/FeatureServer' },
-  { name: '01 PROV NS – SOC (Census)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/SOC' },
-  { name: '01 PROV NS – STRU (Structures)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/STRU' },
-  { name: '01 PROV NS – TRNS (Transportation)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS' },
-  { name: '01 PROV NS – WTR (Water)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/WTR' },
-  { name: '02 MUNI HRM', url: 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services' },
-  { name: '?? ECCC', url: 'https://services1.arcgis.com/d0ZCwU7eGKVeNiEE/ArcGIS/rest/services' },
+// ── ESRI service presets – Nova Scotia NSGIWA MapServer catalogue ─────────────
+const ESRI_PRESET_GROUPS: { group: string; items: { name: string; url: string }[] }[] = [
+  {
+    group: 'BASE – Base Mapping',
+    items: [
+      { name: 'Civic Address File (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NS_CivicAddress_File_UT83/MapServer' },
+      { name: 'Civic Address File (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NS_CivicAddress_File_WM84/MapServer' },
+      { name: 'GeoNames FO Points (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NS_GeoNAMES_FO_pnt_UT83/MapServer' },
+      { name: 'GeoNames Points (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NS_GeoNAMES_pnt_UT83/MapServer' },
+      { name: 'Map Index 50k (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_Indexes_50k_UT83/MapServer' },
+      { name: 'Map Index 50k (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_Index_50k_WM84/MapServer' },
+      { name: 'NS Streets (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NS_Streets_UT83/MapServer' },
+      { name: 'NS Streets (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NS_Streets_WM84/MapServer' },
+      { name: 'NSODB 2k (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSODB_2k_UT83/MapServer' },
+      { name: 'NSODB 2k (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSODB_2k_WM84/MapServer' },
+      { name: 'NSODB 10k (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSODB_10k_UT83/MapServer' },
+      { name: 'NSODB 10k (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSODB_10k_WM84/MapServer' },
+      { name: 'NSODB Index 10k (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_Index_NSODB_10k_WM84/MapServer' },
+      { name: 'NSODB Indexes (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSODB_Indexes_UT83/MapServer' },
+      { name: 'NSTDB Index 10k (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_Index_NSTDB_10k_WM84/MapServer' },
+      { name: 'NSTDB Indexes (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_Indexes_UT83/MapServer' },
+      { name: 'NSTDB 10k Buildings (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Buildings_UT83/MapServer' },
+      { name: 'NSTDB 10k Buildings (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Buildings_WM84/MapServer' },
+      { name: 'NSTDB 10k Colour (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Colour_UT83/MapServer' },
+      { name: 'NSTDB 10k Colour (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Colour_WM84/MapServer' },
+      { name: 'NSTDB 10k Colour No GeoNames (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Colour_NoGeoNames_UT83/MapServer' },
+      { name: 'NSTDB 10k Colour No GeoNames (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Colour_NoGeoNames_WM84/MapServer' },
+      { name: 'NSTDB 10k Delimiter Boundaries (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10K_Delimiter_Boundaries_UT83/MapServer' },
+      { name: 'NSTDB 10k Delimiter Boundaries (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10K_Delimiter_Boundaries_WM84/MapServer' },
+      { name: 'NSTDB 10k Delimiter Boundaries No Labels (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10K_Delimiter_Boundaries_NoLabels_UT83/MapServer' },
+      { name: 'NSTDB 10k Delimiter Boundaries No Labels (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10K_Delimiter_Boundaries_NoLabels_WM84/MapServer' },
+      { name: 'NSTDB 10k Delimiters (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Delimiters_UT83/MapServer' },
+      { name: 'NSTDB 10k Delimiters (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Delimiters_WM84/MapServer' },
+      { name: 'NSTDB 10k Designated Areas (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Designated_Areas_UT83/MapServer' },
+      { name: 'NSTDB 10k Designated Areas (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Designated_Areas_WM84/MapServer' },
+      { name: 'NSTDB 10k DTM (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_DTM_UT83/MapServer' },
+      { name: 'NSTDB 10k DTM (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_DTM_WM84/MapServer' },
+      { name: 'NSTDB 10k Grey (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_UT83/MapServer' },
+      { name: 'NSTDB 10k Grey (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_WM84/MapServer' },
+      { name: 'NSTDB 10k Grey No Roads Labels (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_NoRoadsLabels_UT83/MapServer' },
+      { name: 'NSTDB 10k Grey No Roads Labels (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_NoRoadsLabels_WM84/MapServer' },
+      { name: 'NSTDB 10k Grey With GeoName Labels (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_WithGeoNameLabels_UT83/MapServer' },
+      { name: 'NSTDB 10k Grey With GeoName Labels (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_WithGeoNameLabels_WM84/MapServer' },
+      { name: 'NSTDB 10k Grey With Roads (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_WithRoads_UT83/MapServer' },
+      { name: 'NSTDB 10k Grey With Roads (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Grey_WithRoads_WM84/MapServer' },
+      { name: 'NSTDB 10k Land Cover (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Land_Cover_UT83/MapServer' },
+      { name: 'NSTDB 10k Land Cover (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Land_Cover_WM84/MapServer' },
+      { name: 'NSTDB 10k Landforms (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Landforms_UT83/MapServer' },
+      { name: 'NSTDB 10k Landforms v6 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Landforms_UT83v6/MapServer' },
+      { name: 'NSTDB 10k Landforms (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Landforms_WM84/MapServer' },
+      { name: 'NSTDB 10k Roads (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Roads_UT83/MapServer' },
+      { name: 'NSTDB 10k Roads (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Roads_WM84/MapServer' },
+      { name: 'NSTDB 10k Structures (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Structures_UT83/MapServer' },
+      { name: 'NSTDB 10k Structures (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Structures_WM84/MapServer' },
+      { name: 'NSTDB 10k Utilities (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Utilities_UT83/MapServer' },
+      { name: 'NSTDB 10k Utilities (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Utilities_WM84/MapServer' },
+      { name: 'NSTDB 10k Water (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Water_UT83/MapServer' },
+      { name: 'NSTDB 10k Water (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_Water_WM84/MapServer' },
+      { name: 'NSTDB 10k White With Water No Roads Labels (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_NSTDB_10k_White_WithWater_NoRoadsLabels_UT83/MapServer' },
+      { name: 'Photo Centres (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_Photo_Centres_UT83/MapServer' },
+      { name: 'Retired Map Service (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BASE/BASE_Retired_Mapservice_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'BIO – Wildlife & Landscape',
+    items: [
+      { name: 'Provincial Landscape Viewer (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BIO/WLD_ProvLandScapeViewer_UT83/MapServer' },
+      { name: 'Provincial Landscape Viewer (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BIO/WLD_ProvLandScapeViewer_WM84/MapServer' },
+    ],
+  },
+  {
+    group: 'BND – Administrative Boundaries',
+    items: [
+      { name: 'Distribution of Seats (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_DistributionOfSeats_UT83/MapServer' },
+      { name: 'Electoral Boundaries (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_ElectoralBoundaries_UT83/MapServer' },
+      { name: 'Electoral District Profiles (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_Electoral_District_Profiles_UT83/MapServer' },
+      { name: 'General Election Results (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_GeneralElectionResults_UT83/MapServer' },
+      { name: 'Housing Authority Boundaries (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_Housing_Authority_Boundaries_UT83/MapServer' },
+      { name: 'Municipal & Village Boundaries (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_Municipal_Village_Boundaries_UT83/MapServer' },
+      { name: 'NS Community Boundaries (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_NS_Community_Bndys_UT83/MapServer' },
+      { name: 'NS Community Boundaries (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_NS_Community_Bndys_WM84/MapServer' },
+      { name: 'OSD Admin Boundaries (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_OpportunitiesSocialDevelopment_Admin_Bndys_UT83/MapServer' },
+      { name: 'Self-Contained Labour Areas 2021 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/BND/BND_SelfcontainedLabourAreas_2021_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'ELEV – Elevation & Terrain',
+    items: [
+      { name: 'LiDAR Elevation (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ELEV/ELEV_LIDAR_ELEVATION_UT83/MapServer' },
+      { name: 'LiDAR Projects Hillshade (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ELEV/ELEV_LIDAR_Projects_Hillshade_UT83/MapServer' },
+      { name: 'NSTDB Elevation (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ELEV/ELEV_NSTDB_Elevation_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'ENV – Environment & Protected Areas',
+    items: [
+      { name: 'NS Protected Area System (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ENV/ENV_NS_Prot_Area_Sys_UT83/MapServer' },
+      { name: 'Wilderness Areas & Nature Reserves (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ENV/ENVWAandNRUT83V1/MapServer' },
+      { name: 'Wilderness Areas & Nature Reserves (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/ENV/ENVWAandNRWM84V1/MapServer' },
+    ],
+  },
+  {
+    group: 'FOR – Forestry & Ecology',
+    items: [
+      { name: 'Ecodistrict 2015 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_Ecodistrict_2015_UT83/MapServer' },
+      { name: 'Ecodistrict 2015 (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_Ecodistrict_2015_WM84/MapServer' },
+      { name: 'Eco Indicators 2023 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_EcoIndicators_2023v1_UT83/MapServer' },
+      { name: 'Eco Indicators 2023 (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_EcoIndicators_2023v1_WM84/MapServer' },
+      { name: 'Ecological Land Classification 2015 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_EcologicalLandClassification_2015_UT83/MapServer' },
+      { name: 'Ecological Land Classification 2015 (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_EcologicalLandClassification_2015_WM84/MapServer' },
+      { name: 'FEC Soil Type (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_FEC_SoilType_UT83/MapServer' },
+      { name: 'FEC Soil Type (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_FEC_SoilType_WM84/MapServer' },
+      { name: 'Forest (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_Forest_UT83/MapServer' },
+      { name: 'Forest (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_Forest_WM84/MapServer' },
+      { name: 'Forest Treatment (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_ForestTreatment_UT83/MapServer' },
+      { name: 'Forest Treatment (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_ForestTreatment_WM84/MapServer' },
+      { name: 'High Production Forest Planning (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_HighProductionForestPlanning_UT83/MapServer' },
+      { name: 'High Production Forest Planning (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_HighProductionForestPlanning_WM84/MapServer' },
+      { name: 'Old Growth Forest Policy (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_OldGrowthForestPolicy_UT83/MapServer' },
+      { name: 'Old Growth Forest Policy (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_OldGrowthForestPolicy_WM84/MapServer' },
+      { name: 'Provincial Landscape Viewer (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_ProvLandscapeViewer_UT83/MapServer' },
+      { name: 'Provincial Landscape Viewer (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_ProvLandscapeViewer_WM84/MapServer' },
+      { name: 'Research PSP (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_ResearchPSP_UT83/MapServer' },
+      { name: 'Research PSP (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_ResearchPSP_WM84/MapServer' },
+      { name: 'Road Index (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_RoadIndex_UT83/MapServer' },
+      { name: 'Road Index (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_RoadIndex_WM84/MapServer' },
+      { name: 'Tree Improvement (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_TreeImprovement_UT83/MapServer' },
+      { name: 'Tree Improvement (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_TreeImprovement_WM84/MapServer' },
+      { name: 'Wet Areas Mapping (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_WetAreasMapping_UT83/MapServer' },
+      { name: 'Wet Areas Mapping (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_WetAreasMapping_WM84/MapServer' },
+      { name: 'Wind Exposure 2017 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_WindExposure2017_UT83/MapServer' },
+      { name: 'Wind Exposure 2017 (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_WindExposure2017_WM84/MapServer' },
+      { name: 'Wind Exposure 2017 PL (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_WindExposure2017_PL_UT83/MapServer' },
+      { name: 'Wind Exposure 2017 PL (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/FOR/FOR_WindExposure2017_PL_WM84/MapServer' },
+    ],
+  },
+  {
+    group: 'GEOL – Geology & Hydrogeology',
+    items: [
+      { name: 'Arsenic Risk Water Wells (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/GEOL/GEOL_hg_ArsenicRiskWaterWells_h499ns_UT83/MapServer' },
+      { name: 'Geoheritage Sites (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/GEOL/GEOL_gh_d477ns_Geoheritage_Sites_UT83/MapServer' },
+      { name: 'Surficial Aquifers (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/GEOL/GEOL_hg_SurficialAquifers_h490ns_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'HLTH – Health Services',
+    items: [
+      { name: 'AED Map (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH/HLTH_AEDMap_UT83/MapServer' },
+      { name: 'Community Clusters (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH/HLTH_CommunityClusters_UT83/MapServer' },
+      { name: 'Community Health Networks (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH/HLTH_CommunityHealthNetworks_UT83/MapServer' },
+      { name: 'Hospitals (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH/HLTH_Hospitals_UT83/MapServer' },
+      { name: 'Long Term Care (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH/HLTH_LongTermCare_UT83/MapServer' },
+      { name: 'Management Zones (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/HLTH/HLTH_ManagementZones_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'LOC – Survey Control',
+    items: [
+      { name: 'NSCRS Stations (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/LOC/LOC_NSCRS_Stations_UT83/MapServer' },
+      { name: 'NSCRS Stations (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/LOC/LOC_NSCRS_Stations_WM84/MapServer' },
+    ],
+  },
+  {
+    group: 'OCN – Ocean & Coastal Flooding',
+    items: [
+      { name: 'High Water Coastline (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/OCN/OCN_High_Water_Coastline_UT83/MapServer' },
+      { name: 'Projected Current Day Flooding (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/OCN/OCN_Projected_Current_Day_Flooding_UT83/MapServer' },
+      { name: 'Projected Worst Case Flooding 2050 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/OCN/OCN_Projected_Worst_Case_Flooding_2050_UT83/MapServer' },
+      { name: 'Projected Worst Case Flooding 2100 (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/OCN/OCN_Projected_Worst_Case_Flooding_2100_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'PLAN – Crown Land & Planning',
+    items: [
+      { name: 'Crown Harvest Plans (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/PLAN/PLAN_CrownHarvestPlans_UT83/MapServer' },
+      { name: 'Crown Harvest Plans (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/PLAN/PLAN_CrownHarvestPlans_WM84/MapServer' },
+      { name: 'Crown Lands (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/PLAN/PLANCrownLandsWM84V1/MapServer' },
+      { name: 'NSPRD Management Units (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/PLAN/PLAN_NSPRD_MU_UT83/MapServer' },
+      { name: 'Simplified Crown Parcels (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/PLAN/PLAN_SimplifiedCrownParcels_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'SOC – Social & Population',
+    items: [
+      { name: 'Population Calculation (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/SOC/SOC_PopulationCalculation_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'STRU – Structures & Facilities',
+    items: [
+      { name: 'OSD Offices (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/STRU/STRU_OpportunitiesSocialDevelopment_Offices_UT83/MapServer' },
+      { name: 'Schools (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/STRU/STRU_Schools_UT83/MapServer' },
+    ],
+  },
+  {
+    group: 'TRNS – Transportation',
+    items: [
+      { name: 'Highway 100 Markers (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS/TRNS_Highway_100_Markers_UT83/MapServer' },
+      { name: 'NSRN Addressed Roads (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS/TRNS_NSRN_Addressed_Roads_UT83/MapServer' },
+      { name: 'NSRN Addressed Roads (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS/TRNS_NSRN_Addressed_Roads_WM84/MapServer' },
+      { name: 'NSRN Roads (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS/TRNS_NSRN_Roads_UT83/MapServer' },
+      { name: 'NSRN Roads (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS/TRNS_NSRN_Roads_WM84/MapServer' },
+      { name: 'TIR LOS (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS/TRNS_TIR_LOS_WM84/MapServer' },
+      { name: 'TIR LOS Test (WGS84)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/TRNS/TRNS_TIR_LOS_WM84_Test/MapServer' },
+    ],
+  },
+  {
+    group: 'WTR – Water Resources',
+    items: [
+      { name: 'Flood Damage Reduction (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/WTR/WTR_FloodDamageReduction_UT83/MapServer' },
+      { name: 'Municipal Water Supply Wellheads (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/WTR/WTR_MunicipalWaterSupplyWellheads_UT83/MapServer' },
+      { name: 'NS Hydrographic Network (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/WTR/WTR_NSHN_UT83/MapServer' },
+      { name: 'Public Registered Drinking Water Supplies (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/WTR/WTR_PublicRegisteredDrinkingWaterSupplies_UT83/MapServer' },
+      { name: 'Watersheds (UTM83)', url: 'https://nsgiwa.novascotia.ca/arcgis/rest/services/WTR/WTR_Watersheds_UT83/MapServer' },
+    ],
+  },
 ];
 type Tab = typeof TABS[number];
 
@@ -139,6 +311,7 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
   const [isFeatureServer, setIsFeatureServer] = useState(false);
   const [presetFilter, setPresetFilter] = useState('');
   const [showPresets, setShowPresets] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const handleFetch = async () => {
     setLoading(true); setError(''); setMeta(null);
@@ -171,10 +344,22 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
     onAdd(layer);
   };
 
-  const filteredPresets = ESRI_PRESETS.filter((p) =>
-    p.name.toLowerCase().includes(presetFilter.toLowerCase()) ||
-    p.url.toLowerCase().includes(presetFilter.toLowerCase())
-  );
+  const totalPresets = ESRI_PRESET_GROUPS.reduce((sum, g) => sum + g.items.length, 0);
+
+  const toggleGroup = (group: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group); else next.add(group);
+      return next;
+    });
+  };
+
+  const filterLower = presetFilter.toLowerCase();
+  const displayGroups = presetFilter
+    ? [{ group: 'Search Results', items: ESRI_PRESET_GROUPS.flatMap((g) => g.items).filter((p) =>
+        p.name.toLowerCase().includes(filterLower) || p.url.toLowerCase().includes(filterLower)
+      )}]
+    : ESRI_PRESET_GROUPS;
 
   return (
     <div className="space-y-4">
@@ -185,7 +370,7 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
           onClick={() => setShowPresets((v) => !v)}
           className="text-xs font-medium text-accent hover:underline flex items-center gap-1"
         >
-          {showPresets ? '▾' : '▸'} Saved connections ({ESRI_PRESETS.length})
+          {showPresets ? '▾' : '▸'} Saved connections ({totalPresets})
         </button>
         {showPresets && (
           <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden">
@@ -196,20 +381,39 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
               placeholder="Filter connections…"
               className="w-full px-3 py-1.5 text-xs border-b border-slate-200 focus:outline-none"
             />
-            <ul className="max-h-48 overflow-y-auto divide-y divide-slate-100">
-              {filteredPresets.map((p) => (
-                <li key={p.url}>
-                  <button
-                    type="button"
-                    onClick={() => { setUrl(p.url); setMeta(null); setShowPresets(false); setPresetFilter(''); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 transition-colors"
-                  >
-                    <p className="text-xs font-medium text-slate-700 truncate">{p.name}</p>
-                    <p className="text-xs text-slate-400 truncate">{p.url}</p>
-                  </button>
-                </li>
+            <div className="max-h-64 overflow-y-auto">
+              {displayGroups.map((g) => (
+                <div key={g.group}>
+                  {!presetFilter && (
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(g.group)}
+                      className="w-full text-left px-3 py-1.5 bg-slate-50 hover:bg-slate-100 flex items-center gap-1.5 border-b border-slate-200"
+                    >
+                      <span className="text-slate-400 text-xs">{expandedGroups.has(g.group) ? '▾' : '▸'}</span>
+                      <span className="text-xs font-semibold text-slate-600 flex-1">{g.group}</span>
+                      <span className="text-xs text-slate-400">{g.items.length}</span>
+                    </button>
+                  )}
+                  {(presetFilter || expandedGroups.has(g.group)) && (
+                    <ul className="divide-y divide-slate-100">
+                      {g.items.map((p) => (
+                        <li key={p.url}>
+                          <button
+                            type="button"
+                            onClick={() => { setUrl(p.url); setMeta(null); setShowPresets(false); setPresetFilter(''); }}
+                            className="w-full text-left px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                          >
+                            <p className="text-xs font-medium text-slate-700 truncate">{p.name}</p>
+                            <p className="text-xs text-slate-400 truncate">{p.url}</p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
       </div>
