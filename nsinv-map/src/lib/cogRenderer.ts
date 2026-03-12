@@ -127,6 +127,8 @@ export class CogCustomLayer {
       const ovIdx = Math.max(0, Math.min(imageCount - 1, Math.floor((20 - zoom) / 3)));
       const image = await this.tiff.getImage(ovIdx);
 
+      mapLog('info', `COG "${this.config.name}": zoom=${zoom.toFixed(1)}, overview ${ovIdx}/${imageCount - 1}, tile ${image.getWidth()}×${image.getHeight()}px`);
+
       // Overview images (ovIdx > 0) often lack ModelPixelScaleTag and throw
       // "The image does not have an affine transformation" when getResolution()
       // or getBoundingBox() is called without a reference image.  We load the
@@ -136,14 +138,20 @@ export class CogCustomLayer {
       // Use the base image for bounding box – overviews cover the same extent
       // but their getBoundingBox() may throw without affine tags.
       const bbox = baseImage.getBoundingBox();
+      mapLog('info', `COG "${this.config.name}": file bbox=[${bbox.map((v: number) => v.toFixed(4)).join(', ')}]`);
+
       // Check overlap
       if (east < bbox[0] || west > bbox[2] || north < bbox[1] || south > bbox[3]) {
+        mapLog('info', `COG "${this.config.name}": viewport outside file extent – skipping`);
         this.rendering = false;
         return;
       }
 
       const window = bboxToWindow(image, west, south, east, north, baseImage);
+      mapLog('info', `COG "${this.config.name}": pixel window=[${window.join(', ')}], output=${width}×${height}px`);
+
       if (window[2] <= window[0] || window[3] <= window[1]) {
+        mapLog('info', `COG "${this.config.name}": degenerate pixel window – skipping`);
         this.rendering = false;
         return;
       }
@@ -158,18 +166,31 @@ export class CogCustomLayer {
 
       const rawData = rasters[0] as Float32Array | Int16Array | Uint16Array | Uint8Array;
 
+      // Count valid vs nodata pixels for diagnostics
+      let validCount = 0, nodataCount = 0, nanCount = 0;
+      let dataMn = Infinity, dataMx = -Infinity;
+      for (let i = 0; i < rawData.length; i++) {
+        const v = rawData[i];
+        if (!isFinite(v)) { nanCount++; continue; }
+        if (this.config.noDataValue !== undefined && v === this.config.noDataValue) { nodataCount++; continue; }
+        validCount++;
+        if (v < dataMn) dataMn = v;
+        if (v > dataMx) dataMx = v;
+      }
+      mapLog('info', `COG "${this.config.name}": pixels total=${rawData.length}, valid=${validCount}, nodata=${nodataCount}, nan=${nanCount}, noDataValue=${this.config.noDataValue ?? 'unset'}`);
+      if (validCount > 0) {
+        mapLog('info', `COG "${this.config.name}": actual data range=[${dataMn.toFixed(4)}, ${dataMx.toFixed(4)}]`);
+      } else {
+        mapLog('warn', `COG "${this.config.name}": no valid pixels in this viewport – try panning/zooming to the data extent`);
+      }
+
       let minVal = this.config.minValue;
       let maxVal = this.config.maxValue;
-      if (this.config.autoStretch) {
-        let mn = Infinity, mx = -Infinity;
-        for (let i = 0; i < rawData.length; i++) {
-          const v = rawData[i];
-          if (this.config.noDataValue !== undefined && v === this.config.noDataValue) continue;
-          if (v < mn) mn = v;
-          if (v > mx) mx = v;
-        }
-        if (mn < mx) { minVal = mn; maxVal = mx; }
+      if (this.config.autoStretch && validCount > 0) {
+        minVal = dataMn;
+        maxVal = dataMx;
       }
+      mapLog('info', `COG "${this.config.name}": rendering with range=[${minVal.toFixed(4)}, ${maxVal.toFixed(4)}], autoStretch=${this.config.autoStretch}, colorRamp=${this.config.colorRamp}, gamma=${this.config.gamma}`);
 
       const ramp = COLOR_RAMPS[this.config.colorRamp] || COLOR_RAMPS.viridis;
       const imageData = applyColorRamp(
@@ -179,6 +200,7 @@ export class CogCustomLayer {
       this.canvas.width = width;
       this.canvas.height = height;
       this.ctx.putImageData(imageData, 0, 0);
+      mapLog('success', `COG "${this.config.name}": canvas updated ${width}×${height}px`);
 
       // Update the geographic extent of the canvas source to match the viewport.
       const sourceId = `${this.id}-cog-source`;
