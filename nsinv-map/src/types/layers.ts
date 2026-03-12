@@ -125,4 +125,10 @@ export const BASEMAPS = {
     url: '',
     attribution: '',
   },
+  hrdemHillshade: {
+    id: 'hrdemHillshade',
+    name: 'NRCan Hillshade (DTM)',
+    url: 'https://datacube.services.geo.ca/ows/elevation?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=dtm-hillshade&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&CRS=EPSG:3857&FORMAT=image/png&TRANSPARENT=TRUE',
+    attribution: '© Natural Resources Canada',
+  },
 } as const;

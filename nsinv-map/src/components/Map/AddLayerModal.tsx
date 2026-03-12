@@ -303,7 +303,7 @@ export function AddLayerModal({ onClose }: Props) {
 // ── ESRI Tab ────────────────────────────────────────────────────────────────
 
 function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
-  const [url, setUrl] = useState('https://nsgiwa2.novascotia.ca/arcgis/rest/services/PLAN/PLAN_NSPRD_WM84/MapServer');
+  const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [meta, setMeta] = useState<Awaited<ReturnType<typeof fetchEsriServiceMetadata>> | null>(null);
@@ -465,7 +465,7 @@ function EsriTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
 // ── COG Tab ─────────────────────────────────────────────────────────────────
 
 function CogTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
-  const [url, setUrl] = useState('https://nswetlands-mapping.s3.us-east-2.amazonaws.com/COG/DTW_cog.tif');
+  const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState<{ width: number; height: number; bands: number } | null>(null);
@@ -577,7 +577,7 @@ function CogTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
 // ── XYZ Tab ──────────────────────────────────────────────────────────────────
 
 function XyzTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
-  const [urlTemplate, setUrlTemplate] = useState('https://nswetlands-mapping.s3.us-east-2.amazonaws.com/BIGNEY/{z}/{x}/{y}.png');
+  const [urlTemplate, setUrlTemplate] = useState('');
   const [name, setName] = useState('');
   const [tileSize, setTileSize] = useState<256 | 512>(256);
   const [minZoom, setMinZoom] = useState(0);
@@ -672,6 +672,26 @@ function XyzTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
 
 // ── WMS Tab ──────────────────────────────────────────────────────────────────
 
+// NRCan (Natural Resources Canada) elevation WMS – datacube.services.geo.ca
+const WMS_PRESET_GROUPS: {
+  group: string;
+  items: { name: string; url: string; layer: string; version: '1.1.1' | '1.3.0' }[];
+}[] = [
+  {
+    group: 'NRCan – Elevation (LiDAR)',
+    items: [
+      { name: 'Digital Terrain Model (DTM)', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dtm', version: '1.3.0' },
+      { name: 'Hillshade – DTM', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dtm-hillshade', version: '1.3.0' },
+      { name: 'Slope – DTM', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dtm-slope', version: '1.3.0' },
+      { name: 'Aspect – DTM', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dtm-aspect', version: '1.3.0' },
+      { name: 'Digital Surface Model (DSM)', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dsm', version: '1.3.0' },
+      { name: 'Hillshade – DSM', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dsm-hillshade', version: '1.3.0' },
+      { name: 'Slope – DSM', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dsm-slope', version: '1.3.0' },
+      { name: 'Aspect – DSM', url: 'https://datacube.services.geo.ca/ows/elevation', layer: 'dsm-aspect', version: '1.3.0' },
+    ],
+  },
+];
+
 function WmsTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -679,6 +699,7 @@ function WmsTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
   const [availableLayers, setAvailableLayers] = useState<Array<{ name: string; title: string }>>([]);
   const [selectedLayers, setSelectedLayers] = useState<string[]>([]);
   const [version, setVersion] = useState<'1.1.1' | '1.3.0'>('1.1.1');
+  const [showPresets, setShowPresets] = useState(false);
 
   const handleFetch = async () => {
     setLoading(true); setError(''); setAvailableLayers([]);
@@ -729,8 +750,78 @@ function WmsTab({ onAdd }: { onAdd: (l: AnyLayer) => void }) {
     onAdd(layer);
   };
 
+  const handlePresetAdd = (preset: { name: string; url: string; layer: string; version: '1.1.1' | '1.3.0' }) => {
+    const layer: WmsLayer = {
+      id: uid(),
+      name: preset.name,
+      type: 'wms',
+      visible: true,
+      opacity: 1,
+      order: 0,
+      url: preset.url,
+      layers: preset.layer,
+      version: preset.version,
+      format: 'image/png',
+    };
+    onAdd(layer);
+  };
+
+  const totalWmsPresets = WMS_PRESET_GROUPS.reduce((sum, g) => sum + g.items.length, 0);
+
   return (
     <div className="space-y-4">
+      {/* Saved connections */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowPresets((v) => !v)}
+          className="text-xs font-medium text-accent hover:underline flex items-center gap-1"
+        >
+          {showPresets ? '▾' : '▸'} Saved connections ({totalWmsPresets})
+        </button>
+        {showPresets && (
+          <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="max-h-64 overflow-y-auto">
+              {WMS_PRESET_GROUPS.map((g) => (
+                <div key={g.group}>
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+                    <span className="text-xs font-semibold text-slate-600">{g.group}</span>
+                  </div>
+                  <ul className="divide-y divide-slate-100">
+                    {g.items.map((p) => (
+                      <li key={p.layer} className="flex items-center justify-between px-3 py-1.5 hover:bg-slate-50">
+                        <div className="flex-1 min-w-0 mr-2">
+                          <p className="text-xs font-medium text-slate-700 truncate">{p.name}</p>
+                          <p className="text-xs text-slate-400 truncate">{p.layer}</p>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => { setUrl(p.url); setVersion(p.version); setAvailableLayers([]); setShowPresets(false); }}
+                            className="text-xs px-2 py-0.5 border border-slate-300 rounded hover:bg-slate-100 text-slate-600"
+                            title="Load URL into field"
+                          >
+                            Load
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { handlePresetAdd(p); setShowPresets(false); }}
+                            className="text-xs px-2 py-0.5 bg-accent text-white rounded hover:bg-accent-hover"
+                            title="Add this layer directly"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div>
         <label className="text-sm font-medium text-slate-700 block mb-1">WMS URL</label>
         <input
