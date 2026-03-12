@@ -204,6 +204,18 @@ export function MapView({ children, onMapClick }: MapViewProps) {
 
 // ── Layer sync helpers ──────────────────────────────────────────────────────
 
+/** Apply MapLibre raster paint properties from optional RasterEnhancement. */
+function applyRasterEnhancement(map: maplibregl.Map, layerId: string, layer: { rasterEnhancement?: import('../../types/layers').RasterEnhancement }) {
+  const e = layer.rasterEnhancement;
+  if (!e) return;
+  if (e.brightnessMin !== undefined) map.setPaintProperty(layerId, 'raster-brightness-min', e.brightnessMin);
+  if (e.brightnessMax !== undefined) map.setPaintProperty(layerId, 'raster-brightness-max', e.brightnessMax);
+  if (e.contrast      !== undefined) map.setPaintProperty(layerId, 'raster-contrast',       e.contrast);
+  if (e.saturation    !== undefined) map.setPaintProperty(layerId, 'raster-saturation',     e.saturation);
+  if (e.hueRotate     !== undefined) map.setPaintProperty(layerId, 'raster-hue-rotate',     e.hueRotate);
+  if (e.resampling    !== undefined) map.setPaintProperty(layerId, 'raster-resampling',     e.resampling);
+}
+
 function addOrUpdateXyz(map: maplibregl.Map, layer: XyzLayer) {
   const src = map.getSource(layer.id) as maplibregl.RasterTileSource | undefined;
   if (!src) {
@@ -220,6 +232,7 @@ function addOrUpdateXyz(map: maplibregl.Map, layer: XyzLayer) {
   map.setLayerZoomRange(layer.id, layer.minZoom, layer.maxZoom);
   map.setPaintProperty(layer.id, 'raster-opacity', layer.opacity);
   map.setLayoutProperty(layer.id, 'visibility', layer.visible ? 'visible' : 'none');
+  applyRasterEnhancement(map, layer.id, layer);
 }
 
 function addOrUpdateEsriMapServer(map: maplibregl.Map, layer: EsriRestLayer) {
@@ -230,18 +243,24 @@ function addOrUpdateEsriMapServer(map: maplibregl.Map, layer: EsriRestLayer) {
   }
   map.setPaintProperty(layer.id, 'raster-opacity', layer.opacity);
   map.setLayoutProperty(layer.id, 'visibility', layer.visible ? 'visible' : 'none');
+  applyRasterEnhancement(map, layer.id, layer);
 }
 
 function addOrUpdateEsriFeatureServer(map: maplibregl.Map, layer: EsriRestLayer) {
+  const fill   = layer.fillColor   ?? '#3b82f6';
+  const stroke = layer.strokeColor ?? '#1d4ed8';
   if (!map.getSource(layer.id)) {
     map.addSource(layer.id, {
       type: 'geojson',
-      data: `${layer.url}/query?where=1=1&outFields=*&returnGeometry=true&outSR=4326&f=geojson`,
+      data: `${layer.url}/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson`,
     });
-    map.addLayer({ id: layer.id, type: 'fill', source: layer.id, paint: { 'fill-color': '#3b82f6', 'fill-opacity': 0.5 } });
-    map.addLayer({ id: `${layer.id}-line`, type: 'line', source: layer.id, paint: { 'line-color': '#1d4ed8', 'line-width': 1 } });
+    map.addLayer({ id: layer.id, type: 'fill', source: layer.id, paint: { 'fill-color': fill, 'fill-opacity': layer.opacity * 0.5 } });
+    map.addLayer({ id: `${layer.id}-line`, type: 'line', source: layer.id, paint: { 'line-color': stroke, 'line-width': 1 } });
+  } else {
+    map.setPaintProperty(layer.id, 'fill-color', fill);
+    map.setPaintProperty(layer.id, 'fill-opacity', layer.opacity * 0.5);
+    map.setPaintProperty(`${layer.id}-line`, 'line-color', stroke);
   }
-  map.setPaintProperty(layer.id, 'fill-opacity', layer.opacity * 0.5);
   map.setLayoutProperty(layer.id, 'visibility', layer.visible ? 'visible' : 'none');
   map.setLayoutProperty(`${layer.id}-line`, 'visibility', layer.visible ? 'visible' : 'none');
 }
@@ -260,6 +279,7 @@ function addOrUpdateWms(map: maplibregl.Map, layer: WmsLayer) {
   }
   map.setPaintProperty(layer.id, 'raster-opacity', layer.opacity);
   map.setLayoutProperty(layer.id, 'visibility', layer.visible ? 'visible' : 'none');
+  applyRasterEnhancement(map, layer.id, layer);
 }
 
 function addOrUpdateGeoJson(map: maplibregl.Map, layer: GeoJsonLayer) {

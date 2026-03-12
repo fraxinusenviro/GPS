@@ -9,6 +9,17 @@ export interface BaseLayer {
   visible: boolean;
   opacity: number;
   order: number;
+  /** Raster display adjustments — applied to ESRI MapServer, WMS and XYZ layers. */
+  rasterEnhancement?: RasterEnhancement;
+}
+
+export interface RasterEnhancement {
+  brightnessMin: number;  // 0–1   (MapLibre default 0)
+  brightnessMax: number;  // 0–1   (MapLibre default 1)
+  contrast:      number;  // -1–1  (MapLibre default 0)
+  saturation:    number;  // -1–1  (MapLibre default 0)
+  hueRotate:     number;  // 0–360 (MapLibre default 0)
+  resampling:    'linear' | 'nearest';
 }
 
 export interface EsriServiceMetadata {
@@ -30,6 +41,9 @@ export interface EsriRestLayer extends BaseLayer {
   url: string;
   serviceMetadata?: EsriServiceMetadata;
   visibleSubLayers: number[];
+  /** FeatureServer only – client-side fill/stroke colours */
+  fillColor?:   string;
+  strokeColor?: string;
 }
 
 export interface CogLayer extends BaseLayer {

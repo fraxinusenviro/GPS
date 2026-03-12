@@ -5,6 +5,11 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { CogLayer } from '../types/layers';
 import { mapLog } from '../store/logStore';
 
+// Maximum canvas dimension for COG rendering.  Full-viewport resolution
+// (especially on HiDPI screens) can be 4 M+ pixels and freezes the main thread
+// while applyColorRamp processes them.  512 px gives a good quality/perf balance.
+const MAX_RENDER_PX = 512;
+
 // Reproject lon/lat bounds to pixel window in the GeoTIFF
 function bboxToWindow(
   image: GeoTIFFImage,
@@ -36,6 +41,7 @@ export class CogCustomLayer {
   private tiff: GeoTIFF | null = null;
   private rendering = false;
   private lastRenderKey = '';
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: CogLayer) {
     this.id = config.id;
@@ -44,7 +50,7 @@ export class CogCustomLayer {
 
   updateConfig(config: CogLayer) {
     this.config = config;
-    this.render_2d();
+    this.scheduleRender();
   }
 
   onAdd(map: MaplibreMap) {
@@ -54,13 +60,17 @@ export class CogCustomLayer {
     // permanently blank.
     const existing = document.getElementById(`cog-canvas-${this.config.id}`) as HTMLCanvasElement | null;
     this.canvas = existing ?? document.createElement('canvas');
+    // Initialise to a stable size so MapLibre's canvas source is never 0×0.
+    this.canvas.width = MAX_RENDER_PX;
+    this.canvas.height = MAX_RENDER_PX;
     this.ctx = this.canvas.getContext('2d');
 
     mapLog('info', `COG "${this.config.name}": opening ${this.config.url}`);
     fromUrl(this.config.url, { allowFullFile: false }).then((t) => {
       this.tiff = t;
-      map.on('moveend', this.render_2d);
-      map.on('zoomend', this.render_2d);
+      // Debounced listeners: panning fires many moveend events in quick succession.
+      map.on('moveend', this.scheduleRender);
+      map.on('zoomend', this.scheduleRender);
       mapLog('success', `COG "${this.config.name}": file opened, starting render`);
       this.render_2d();
     }).catch((err) => {
@@ -70,12 +80,20 @@ export class CogCustomLayer {
   }
 
   onRemove() {
-    this.map?.off('moveend', this.render_2d);
-    this.map?.off('zoomend', this.render_2d);
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.map?.off('moveend', this.scheduleRender);
+    this.map?.off('zoomend', this.scheduleRender);
     this.canvas = null;
     this.ctx = null;
     this.map = null;
   }
+
+  // Debounce render calls so rapid panning only triggers one render after the
+  // map settles, avoiding multiple heavy async operations queuing up.
+  private scheduleRender = () => {
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => this.render_2d(), 200);
+  };
 
   render_2d = async () => {
     if (!this.map || !this.tiff || !this.canvas || !this.ctx || this.rendering) return;
@@ -86,9 +104,12 @@ export class CogCustomLayer {
     const south = bounds.getSouth();
     const north = bounds.getNorth();
 
+    // Cap render size to MAX_RENDER_PX to avoid processing millions of pixels
+    // on the main thread (causes visible freeze on HiDPI / large viewports).
     const mapCanvas = this.map.getCanvas();
-    const width = mapCanvas.width;
-    const height = mapCanvas.height;
+    const scale = Math.min(MAX_RENDER_PX / mapCanvas.width, MAX_RENDER_PX / mapCanvas.height, 1);
+    const width  = Math.max(1, Math.round(mapCanvas.width  * scale));
+    const height = Math.max(1, Math.round(mapCanvas.height * scale));
 
     const renderKey = `${west.toFixed(4)},${south.toFixed(4)},${east.toFixed(4)},${north.toFixed(4)},${width},${height}`;
     if (renderKey === this.lastRenderKey) return;
@@ -148,7 +169,7 @@ export class CogCustomLayer {
       this.canvas.height = height;
       this.ctx.putImageData(imageData, 0, 0);
 
-      // Update the existing canvas overlay source
+      // Update the geographic extent of the canvas source to match the viewport.
       const sourceId = `${this.id}-cog-source`;
       const src = this.map.getSource(sourceId) as maplibregl.CanvasSource | undefined;
       if (src) {
