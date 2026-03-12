@@ -19,6 +19,7 @@ export interface RasterEnhancement {
   contrast:      number;  // -1–1  (MapLibre default 0)
   saturation:    number;  // -1–1  (MapLibre default 0)
   hueRotate:     number;  // 0–360 (MapLibre default 0)
+  gamma:         number;  // 0.1–3 (approximated via brightness curve; 1 = no change)
   resampling:    'linear' | 'nearest';
 }
 
