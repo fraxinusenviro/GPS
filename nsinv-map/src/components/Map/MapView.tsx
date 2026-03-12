@@ -168,6 +168,20 @@ export function MapView({ children, onMapClick }: MapViewProps) {
         showToast(`Error loading layer "${layer.name}"`, 'error');
       }
     }
+
+    // Re-apply z-order: move each layer's MapLibre layer(s) to top in ascending
+    // order so the highest-order layer ends up on top of the stack.
+    for (const layer of sorted) {
+      const mapLayerIds =
+        layer.type === 'geojson'            ? [`${layer.id}-fill`, `${layer.id}-line`, `${layer.id}-circle`, `${layer.id}-label`] :
+        layer.type === 'esri-featureserver' ? [layer.id, `${layer.id}-line`] :
+        layer.type === 'cog'                ? [`${layer.id}-cog-layer`] :
+                                              [layer.id];
+      for (const lid of mapLayerIds) {
+        if (map.getLayer(lid)) map.moveLayer(lid);
+      }
+    }
+
     // Ensure MapLibre schedules a render frame after any source/layer changes.
     map.triggerRepaint();
   }, [layers, logEntry, showToast]);
@@ -236,10 +250,14 @@ function addOrUpdateXyz(map: maplibregl.Map, layer: XyzLayer) {
 }
 
 function addOrUpdateEsriMapServer(map: maplibregl.Map, layer: EsriRestLayer) {
+  const newTiles = buildEsriRasterSource(layer.url, layer.visibleSubLayers).tiles;
   if (!map.getSource(layer.id)) {
-    const source = buildEsriRasterSource(layer.url, layer.visibleSubLayers);
-    map.addSource(layer.id, source);
+    map.addSource(layer.id, { type: 'raster', tiles: newTiles, tileSize: 256 });
     map.addLayer({ id: layer.id, type: 'raster', source: layer.id });
+  } else {
+    // Update tile URL if visibleSubLayers changed — setTiles flushes the tile cache.
+    const src = map.getSource(layer.id) as maplibregl.RasterTileSource;
+    if (src.tiles?.[0] !== newTiles[0]) src.setTiles(newTiles);
   }
   map.setPaintProperty(layer.id, 'raster-opacity', layer.opacity);
   map.setLayoutProperty(layer.id, 'visibility', layer.visible ? 'visible' : 'none');
@@ -276,6 +294,9 @@ function addOrUpdateWms(map: maplibregl.Map, layer: WmsLayer) {
   if (!map.getSource(layer.id)) {
     map.addSource(layer.id, { type: 'raster', tiles: [wmsUrl], tileSize: 256 });
     map.addLayer({ id: layer.id, type: 'raster', source: layer.id });
+  } else {
+    const src = map.getSource(layer.id) as maplibregl.RasterTileSource;
+    if (src.tiles?.[0] !== wmsUrl) src.setTiles([wmsUrl]);
   }
   map.setPaintProperty(layer.id, 'raster-opacity', layer.opacity);
   map.setLayoutProperty(layer.id, 'visibility', layer.visible ? 'visible' : 'none');

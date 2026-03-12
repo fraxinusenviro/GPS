@@ -36,8 +36,8 @@ export function LegendPanel() {
         }).catch(() => {});
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleLayers.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleLayers.map((l) => l.id).join(',')]);
 
   if (visibleLayers.length === 0) return null;
 
